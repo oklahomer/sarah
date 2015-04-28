@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import logging
 import os
 import sys
 from configobj import ConfigObj
@@ -12,7 +13,14 @@ class Sarah(object):
 
     def start(self):
         if 'hipchat' in self.config:
-            HipChat(**self.config.get('hipchat', {}))
+            logging.info('Start HipChat integration')
+            hipchat = HipChat(**self.config.get('hipchat', {}))
+            hipchat.start()
+
+#        if 'irc' in self.config:
+#            logging.info('Start IRC integration')
+#            irc = IRC(**self.config.get('irc', {}))
+#            irc.start()
 
     def load_config(self, paths):
         config = {}

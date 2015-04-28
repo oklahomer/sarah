@@ -3,19 +3,22 @@
 import logging
 import os
 import sys
+import threading
 from configobj import ConfigObj
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
 
-class HipChat(object):
+class HipChat(threading.Thread):
     def __init__(self, **kwargs):
-        self.config = kwargs
+        threading.Thread.__init__(self)
 
+        self.config = kwargs
         self.client = self.setup_xmpp_client()
+
+    def run(self):
         connected = self.client.connect()
         if not connected:
             raise SarahHipChatException('Coudn\'t connect to server.')
-
         self.client.process(block=True)
 
     def setup_xmpp_client(self):
