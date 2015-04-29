@@ -11,11 +11,12 @@ from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
 
 class HipChat(threading.Thread):
-    def __init__(self, **kwargs):
+    def __init__(self, sarah):
 
         threading.Thread.__init__(self)
 
-        self.config   = kwargs
+        self.sarah    = sarah
+        self.config   = sarah.config.get('hipchat', {})
         self.client   = self.setup_xmpp_client()
         self.plugins  = []
         self.commands = []
@@ -69,7 +70,7 @@ class HipChat(threading.Thread):
                 if class_name == 'PluginBase':
                     continue
 
-                obj = cls(self)
+                obj = cls(self.sarah)
 
                 for function_name, fn in inspect.getmembers(
                                             obj,

@@ -14,7 +14,7 @@ class Sarah(object):
     def start(self):
         if 'hipchat' in self.config:
             logging.info('Start HipChat integration')
-            hipchat = HipChat(**self.config.get('hipchat', {}))
+            hipchat = HipChat(self)
             hipchat.start()
 
 #        if 'irc' in self.config:
