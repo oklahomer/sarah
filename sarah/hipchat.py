@@ -4,16 +4,22 @@ import logging
 import os
 import sys
 import threading
+import importlib
+import inspect
 from configobj import ConfigObj
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
 
 class HipChat(threading.Thread):
     def __init__(self, **kwargs):
+
         threading.Thread.__init__(self)
 
-        self.config = kwargs
-        self.client = self.setup_xmpp_client()
+        self.config   = kwargs
+        self.client   = self.setup_xmpp_client()
+        self.plugins  = []
+        self.commands = []
+        self.load_plugins(self.config.get('plugins', []))
 
     def run(self):
         connected = self.client.connect()
@@ -40,6 +46,45 @@ class HipChat(threading.Thread):
         client.register_plugin('xep_0203')
 
         return client
+
+    def load_plugins(self, plugins):
+        for plugin in plugins:
+            self.load_plugin(plugin)
+
+    def load_plugin(self, module_name):
+        if module_name in self.plugins:
+            return
+
+        try:
+            loaded_module = importlib.import_module(module_name)
+        except Exception as e:
+            logging.error('Failed to load %s. Skipping.' % module_name)
+            return
+
+        try:
+            for class_name, cls in inspect.getmembers(
+                                        loaded_module,
+                                        predicate=inspect.isclass):
+
+                if class_name == 'PluginBase':
+                    continue
+
+                obj = cls(self)
+
+                for function_name, fn in inspect.getmembers(
+                                            obj,
+                                            predicate=inspect.ismethod):
+                    if hasattr(fn, 'hipchat_plugin_meta'):
+                        if 'command' in fn.hipchat_plugin_meta:
+                            self.commands.append(
+                                (fn.hipchat_plugin_meta['command'], fn)
+                            )
+
+        except Exception as e:
+            logging.error('Failed to load command from %s. Skipping.' %
+                          module_name)
+
+        self.plugins.append(module_name)
 
     def session_start(self, event):
         presence_ret = self.client.send_presence()
@@ -87,7 +132,8 @@ class HipChat(threading.Thread):
             return
 
         if msg['type'] in ('normal', 'chat'):
-            msg.reply("Thanks for sending\n%(body)s" % msg).send()
+            #msg.reply("Thanks for sending\n%(body)s" % msg).send()
+            pass
 
         elif msg['type'] == 'groupchat':
             # Don't talk to yourself. It's freaking people out.
@@ -96,7 +142,9 @@ class HipChat(threading.Thread):
             if my_nick == sender_nick:
                 return
 
-            msg.reply('Thanks. %(body)s' % msg).send()
+        for command in self.commands:
+            if msg['body'].startswith(command[0]):
+                command[1](msg)
 
 class SarahHipChatException(Exception):
     pass
