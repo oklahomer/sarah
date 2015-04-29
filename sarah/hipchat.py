@@ -20,7 +20,7 @@ class HipChat(threading.Thread):
         self.client   = self.setup_xmpp_client()
         self.plugins  = []
         self.commands = []
-        self.load_plugins(self.config.get('plugins', []))
+        self.load_plugins(self.config.get('plugins', {}))
 
     def run(self):
         connected = self.client.connect()
@@ -49,10 +49,10 @@ class HipChat(threading.Thread):
         return client
 
     def load_plugins(self, plugins):
-        for plugin in plugins:
-            self.load_plugin(plugin)
+        for module_name, config in plugins.items():
+            self.load_plugin(module_name, config)
 
-    def load_plugin(self, module_name):
+    def load_plugin(self, module_name, config):
         if module_name in self.plugins:
             return
 
@@ -70,7 +70,7 @@ class HipChat(threading.Thread):
                 if class_name == 'PluginBase':
                     continue
 
-                obj = cls(self.sarah)
+                obj = cls(config)
 
                 for function_name, fn in inspect.getmembers(
                                             obj,
@@ -82,6 +82,7 @@ class HipChat(threading.Thread):
                             )
 
         except Exception as e:
+            logging.error(e)
             logging.error('Failed to load command from %s. Skipping.' %
                           module_name)
 
