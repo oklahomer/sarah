@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 from sarah import __name__ as PACKAGE_NAME
 from sarah import VERSION
 
@@ -29,6 +29,9 @@ setup(
     author='Go Hagiwara a.k.a Oklahomer',
     author_email='hagiwara.go@gmail.com',
     url='https://github.com/oklahomer/sarah',
+    version=VERSION,
     install_requires=open('requirements.txt').read().splitlines(),
+    packages=find_packages(),
+    include_package_data=True,
     classifiers=['Programming Language :: Python'],
 )
