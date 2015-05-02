@@ -4,6 +4,7 @@ import re
 from sarah.hipchat_decorator import hipchat_command
 from sarah.hipchat_plugin import PluginBase
 
+
 class EchoPlugin(PluginBase):
     @hipchat_command('.echo')
     def echo(self, msg):

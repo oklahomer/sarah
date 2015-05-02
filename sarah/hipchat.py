@@ -1,24 +1,22 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import os
-import sys
 import threading
 import importlib
 import inspect
-from configobj import ConfigObj
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
+
 
 class HipChat(threading.Thread):
     def __init__(self, sarah):
 
         threading.Thread.__init__(self)
 
-        self.sarah    = sarah
-        self.config   = sarah.config.get('hipchat', {})
-        self.client   = self.setup_xmpp_client()
-        self.plugins  = []
+        self.sarah = sarah
+        self.config = sarah.config.get('hipchat', {})
+        self.client = self.setup_xmpp_client()
+        self.plugins = []
         self.commands = []
         self.load_plugins(self.config.get('plugins', {}))
 
@@ -37,12 +35,12 @@ class HipChat(threading.Thread):
             for key in ('host', 'port', 'username', 'password'):
                 client.proxy_config[key] = self.config.get(key, None)
 
-        #TODO check later
-        #client.add_event_handler('ssl_invalid_cert', lambda cert: True)
+        # TODO check later
+        # client.add_event_handler('ssl_invalid_cert', lambda cert: True)
 
-        client.add_event_handler('roster_update', self.join_rooms   )
+        client.add_event_handler('roster_update', self.join_rooms)
         client.add_event_handler('session_start', self.session_start)
-        client.add_event_handler('message'      , self.message      )
+        client.add_event_handler('message', self.message)
         client.register_plugin('xep_0045')
         client.register_plugin('xep_0203')
 
@@ -64,8 +62,8 @@ class HipChat(threading.Thread):
 
         try:
             for class_name, cls in inspect.getmembers(
-                                        loaded_module,
-                                        predicate=inspect.isclass):
+                    loaded_module,
+                    predicate=inspect.isclass):
 
                 if class_name == 'PluginBase':
                     continue
@@ -73,8 +71,8 @@ class HipChat(threading.Thread):
                 obj = cls(config)
 
                 for function_name, fn in inspect.getmembers(
-                                            obj,
-                                            predicate=inspect.ismethod):
+                        obj,
+                        predicate=inspect.ismethod):
                     if hasattr(fn, 'hipchat_plugin_meta'):
                         if 'command' in fn.hipchat_plugin_meta:
                             self.commands.append(
@@ -89,29 +87,27 @@ class HipChat(threading.Thread):
         self.plugins.append(module_name)
 
     def session_start(self, event):
-        presence_ret = self.client.send_presence()
+        self.client.send_presence()
 
         # http://sleekxmpp.readthedocs.org/en/latest/getting_started/echobot.html
         # It is possible for a timeout to occur while waiting for the server to
         # respond, which can happen if the network is excessively slow or the
         # server is no longer responding. In that case, an IqTimeout is raised.
-        # Similarly, an IqError exception can be raised if the request contained
+        # Similarly, an IqError exception can be raised if the request
+        # contained
         # bad data or requested the roster for the wrong user.
         try:
             self.client.get_roster()
         except IqTimeout as e:
-            raise SarahHipChatException(
-                    'Timeout occured while getting roster. '
-                    'Error type: %s. Condition: %s.' %
-                    e.etype, e.condition,
-                  )
+            raise SarahHipChatException('Timeout occured while getting roster.'
+                                        'Error type: %s. Condition: %s.' %
+                                        e.etype, e.condition)
         except IqError as e:
             # ret['type'] == 'error'
-            raise SarahHipChatException(
-                    'Timeout occured while getting roster. '
-                    'Error type: %s. Condition: %s. Content: %s.' %
-                    e.etype, e.condition, e.text,
-                  )
+            raise SarahHipChatException('Timeout occured while getting roster.'
+                                        'Error type: %s. Condition: %s.'
+                                        'Content: %s.' %
+                                        e.etype, e.condition, e.text)
         except:
             raise SarahHipChatException('Unknown error occured.')
 
@@ -134,12 +130,13 @@ class HipChat(threading.Thread):
             return
 
         if msg['type'] in ('normal', 'chat'):
-            #msg.reply("Thanks for sending\n%(body)s" % msg).send()
+            # msg.reply("Thanks for sending\n%(body)s" % msg).send()
             pass
 
         elif msg['type'] == 'groupchat':
             # Don't talk to yourself. It's freaking people out.
-            my_nick = self.client.plugin['xep_0045'].ourNicks[msg.get_mucroom()]
+            group_plugin = self.client.plugin['xep_0045']
+            my_nick = group_plugin.ourNicks[msg.get_mucroom()]
             sender_nick = msg.get_mucnick()
             if my_nick == sender_nick:
                 return
@@ -148,6 +145,6 @@ class HipChat(threading.Thread):
             if msg['body'].startswith(command[0]):
                 command[1](msg)
 
+
 class SarahHipChatException(Exception):
     pass
-

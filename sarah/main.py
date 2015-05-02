@@ -6,6 +6,7 @@ import sys
 from configobj import ConfigObj
 from sarah.hipchat import HipChat
 
+
 class Sarah(object):
     def __init__(self, **kwargs):
 
@@ -35,6 +36,7 @@ class Sarah(object):
                                  path)
 
         return config
+
 
 class SarahException(Exception):
     pass
