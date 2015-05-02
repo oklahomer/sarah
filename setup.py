@@ -32,6 +32,7 @@ setup(
     version=VERSION,
     install_requires=open('requirements.txt').read().splitlines(),
     packages=find_packages(),
+    data_files=[('sarah', ['sarah/default.conf'])],
     include_package_data=True,
     classifiers=['Programming Language :: Python'],
 )
