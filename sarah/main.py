@@ -22,7 +22,8 @@ class Sarah(object):
 #            irc = IRC(**self.config.get('irc', {}))
 #            irc.start()
 
-    def load_config(self, paths):
+    @staticmethod
+    def load_config(paths):
         config = {}
         file_paths = [os.path.join(os.path.dirname(__file__), 'default.conf')]
         file_paths.extend(paths)
