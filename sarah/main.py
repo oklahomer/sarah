@@ -3,7 +3,7 @@
 import logging
 import os
 from configobj import ConfigObj
-from sarah.hipchat import HipChat
+from sarah.hipchat.main import HipChat
 
 
 class Sarah(object):

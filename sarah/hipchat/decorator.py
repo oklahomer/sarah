@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-def hipchat_command(command_string):
+def command(command_string):
     def wrapper(func):
         def wrapped_function(*args, **kwargs):
             func(*args, **kwargs)
