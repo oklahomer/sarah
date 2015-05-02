@@ -2,7 +2,6 @@
 
 import logging
 import os
-import sys
 from configobj import ConfigObj
 from sarah.hipchat import HipChat
 
@@ -29,11 +28,16 @@ class Sarah(object):
         file_paths.extend(paths)
 
         for path in file_paths:
+            is_file = os.path.isfile(path)
+            if is_file is False:
+                raise SarahException('Configuration file does not exist. %s' %
+                                     path)
+
             try:
                 config.update(ConfigObj(path))
             except:
-                sys.stderr.write('Error while loading configuration file: %s' %
-                                 path)
+                raise SarahException('Can\'t load configuration file. %s' %
+                                     path)
 
         return config
 
