@@ -12,8 +12,24 @@ def initial_args():
     return dict()
 
 
+@scenario('features/boot.feature', 'Default setting')
+def test_default_setting():
+    pass
+
+
+@when('No extra configuration file is given')
+def default_init(initial_args):
+    initial_args['config_paths'] = []
+
+
+@then('Default configuration is applied')
+def default_configuration_is_applied(initial_args):
+    sarah = Sarah(**initial_args)
+    assert sarah.config == {'foo': 'buzz'}
+
+
 @scenario('features/boot.feature', 'Invalid setting')
-def test():
+def test_invalid_setting():
     pass
 
 
