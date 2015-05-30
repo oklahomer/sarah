@@ -3,21 +3,21 @@
 import logging
 import threading
 import importlib
-import inspect
+import numbers
+import re
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
 
 
 class HipChat(threading.Thread):
-    def __init__(self, sarah):
+    __commands = []
+
+    def __init__(self, config):
 
         threading.Thread.__init__(self)
 
-        self.sarah = sarah
-        self.config = sarah.config.get('hipchat', {})
+        self.config = config
         self.client = self.setup_xmpp_client()
-        self.plugins = []
-        self.commands = []
         self.load_plugins(self.config.get('plugins', {}))
 
     def run(self):
@@ -51,40 +51,14 @@ class HipChat(threading.Thread):
             self.load_plugin(module_name, config)
 
     def load_plugin(self, module_name, config):
-        if module_name in self.plugins:
-            return
-
         try:
-            loaded_module = importlib.import_module(module_name)
+            importlib.import_module(module_name)
         except Exception as e:
+            logging.error(e)
             logging.error('Failed to load %s. Skipping.' % module_name)
             return
 
-        try:
-            for class_name, cls in inspect.getmembers(
-                    loaded_module,
-                    predicate=inspect.isclass):
-
-                if class_name == 'PluginBase':
-                    continue
-
-                obj = cls(config)
-
-                for function_name, fn in inspect.getmembers(
-                        obj,
-                        predicate=inspect.ismethod):
-                    if hasattr(fn, 'hipchat_plugin_meta'):
-                        if 'command' in fn.hipchat_plugin_meta:
-                            self.commands.append(
-                                (fn.hipchat_plugin_meta['command'], fn)
-                            )
-
-        except Exception as e:
-            logging.error(e)
-            logging.error('Failed to load command from %s. Skipping.' %
-                          module_name)
-
-        self.plugins.append(module_name)
+        logging.info('Loaded plugin. %s' % module_name)
 
     def session_start(self, event):
         self.client.send_presence()
@@ -141,9 +115,40 @@ class HipChat(threading.Thread):
             if my_nick == sender_nick:
                 return
 
-        for command in self.commands:
+        for command in self.__commands:
             if msg['body'].startswith(command[0]):
-                command[1](msg)
+                text = re.sub(r'{0}\s+'.format(command[0]), '', msg['body'])
+                ret = command[1]({'original_text': msg['body'],
+                                  'text': text,
+                                  'from': msg['from']})
+
+                if isinstance(ret, str):
+                    msg.reply(ret).send()
+                elif isinstance(ret, numbers.Integral):
+                    msg.reply(str(ret)).send()
+#                elif isinstance(ret, dict):
+#                    pass
+                else:
+                    logging.error('Malformed returning value. '
+                                  'Command: %s. Value: %s.' %
+                                  (command[1], str(ret)))
+
+    @classmethod
+    def command(cls, name):
+        def wrapper(func):
+            def wrapped_function(*args, **kwargs):
+                return func(*args, **kwargs)
+            if name in [command_set[0] for command_set in cls.__commands]:
+                logging.info("Skip duplicate command. "
+                             "module: %s. command: %s." %
+                             (func.__module__, name))
+            else:
+                cls.add_command(name, wrapped_function)
+        return wrapper
+
+    @classmethod
+    def add_command(cls, name, func):
+        cls.__commands.append((name, func))
 
 
 class SarahHipChatException(Exception):

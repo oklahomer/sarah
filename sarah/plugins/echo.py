@@ -1,13 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import re
-from sarah.hipchat.decorator import command
-from sarah.hipchat.plugin import PluginBase
+from sarah.hipchat import HipChat
 
 
-class EchoPlugin(PluginBase):
-    @command('.echo')
-    def echo(self, msg):
-        content = msg['body']
-        content = re.sub(r'\.echo\s+', '', content)
-        msg.reply(content).send()
+@HipChat.command('.echo')
+def echo(msg):
+    return msg['text']

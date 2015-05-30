@@ -3,7 +3,7 @@
 import logging
 import os
 from configobj import ConfigObj
-from sarah.hipchat.main import HipChat
+from sarah.hipchat import HipChat
 
 
 class Sarah(object):
@@ -14,7 +14,7 @@ class Sarah(object):
     def start(self):
         if 'hipchat' in self.config:
             logging.info('Start HipChat integration')
-            hipchat = HipChat(self)
+            hipchat = HipChat(self.config['hipchat'])
             hipchat.start()
 
 #        if 'irc' in self.config:
