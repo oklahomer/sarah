@@ -117,10 +117,18 @@ class HipChat(threading.Thread):
 
         for command in self.__commands:
             if msg['body'].startswith(command[0]):
+                plugin_config = {}
+                for (name, config) in self.config.get('plugins', ()):
+                    module_name = command[2]
+                    if module_name != name or config is None:
+                        continue
+                    plugin_config = config
+
                 text = re.sub(r'{0}\s+'.format(command[0]), '', msg['body'])
                 ret = command[1]({'original_text': msg['body'],
                                   'text': text,
-                                  'from': msg['from']})
+                                  'from': msg['from']},
+                                 plugin_config)
 
                 if isinstance(ret, str):
                     msg.reply(ret).send()
@@ -143,12 +151,12 @@ class HipChat(threading.Thread):
                              "module: %s. command: %s." %
                              (func.__module__, name))
             else:
-                cls.add_command(name, wrapped_function)
+                cls.add_command(name, wrapped_function, func.__module__)
         return wrapper
 
     @classmethod
-    def add_command(cls, name, func):
-        cls.__commands.append((name, func))
+    def add_command(cls, name, func, module_name):
+        cls.__commands.append((name, func, module_name))
 
 
 class SarahHipChatException(Exception):

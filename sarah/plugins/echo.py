@@ -4,5 +4,5 @@ from sarah.hipchat import HipChat
 
 
 @HipChat.command('.echo')
-def echo(msg):
+def echo(msg, config):
     return msg['text']
