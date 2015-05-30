@@ -2,7 +2,7 @@
 
 import logging
 import os
-from configobj import ConfigObj
+import yaml
 from sarah.hipchat import HipChat
 
 
@@ -25,17 +25,15 @@ class Sarah(object):
     @staticmethod
     def load_config(paths):
         config = {}
-        file_paths = [os.path.join(os.path.dirname(__file__), 'default.conf')]
-        file_paths.extend(paths)
 
-        for path in file_paths:
+        for path in paths:
             is_file = os.path.isfile(path)
             if is_file is False:
                 raise SarahException('Configuration file does not exist. %s' %
                                      path)
 
             try:
-                config.update(ConfigObj(path))
+                config.update(yaml.load(open(path, 'r')))
             except:
                 raise SarahException('Can\'t load configuration file. %s' %
                                      path)

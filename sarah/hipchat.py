@@ -18,7 +18,7 @@ class HipChat(threading.Thread):
 
         self.config = config
         self.client = self.setup_xmpp_client()
-        self.load_plugins(self.config.get('plugins', {}))
+        self.load_plugins(self.config.get('plugins', []))
 
     def run(self):
         connected = self.client.connect()
@@ -47,10 +47,10 @@ class HipChat(threading.Thread):
         return client
 
     def load_plugins(self, plugins):
-        for module_name, config in plugins.items():
-            self.load_plugin(module_name, config)
+        for module_config in plugins:
+            self.load_plugin(module_config[0])
 
-    def load_plugin(self, module_name, config):
+    def load_plugin(self, module_name):
         try:
             importlib.import_module(module_name)
         except Exception as e:

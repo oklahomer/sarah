@@ -1,0 +1,14 @@
+common:
+hipchat:
+  nick: Sarah
+  jid: 1234_5678@chat.example.com
+  password: blahblahblah
+  rooms:
+    - 1234_myroom@conf.example.com
+  plugins:
+    -
+      - sarah.plugins.echo
+      -
+    -
+      - sarah.plugins.world_weather
+      - api_key: 12345FooBar
