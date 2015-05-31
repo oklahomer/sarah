@@ -13,12 +13,8 @@ try:
     long_description = pypandoc.convert('README.md', 'rst')
 except(IOError, ImportError, OSError, RuntimeError):
     try:
-        long_description = open(
-                                os.path.join(
-                                    os.path.dirname(__file__),
-                                    'README.md'
-                                )
-                           ).read()
+        long_description = open(os.path.join(
+                                os.path.dirname(__file__), 'README.md')).read()
     except:
         long_description = DESCRIPTION + '\n'
 
@@ -32,7 +28,6 @@ setup(
     version=VERSION,
     install_requires=open('requirements.txt').read().splitlines(),
     packages=find_packages(),
-    data_files=[('sarah', ['sarah/default.conf'])],
     include_package_data=True,
     classifiers=['Programming Language :: Python'],
 )
