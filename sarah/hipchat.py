@@ -115,7 +115,7 @@ class HipChat(threading.Thread):
             if my_nick == sender_nick:
                 return
 
-        for command in self.__commands:
+        for command in self.commands:
             if msg['body'].startswith(command[0]):
                 plugin_config = {}
                 for (name, config) in self.config.get('plugins', ()):
@@ -141,6 +141,10 @@ class HipChat(threading.Thread):
                                   'Command: %s. Value: %s.' %
                                   (command[1], str(ret)))
 
+    @property
+    def commands(self):
+        return self.__commands
+
     @classmethod
     def command(cls, name):
         def wrapper(func):
@@ -157,6 +161,13 @@ class HipChat(threading.Thread):
     @classmethod
     def add_command(cls, name, func, module_name):
         cls.__commands.append((name, func, module_name))
+
+    def stop(self):
+        logging.info('STOP HIPCHAT INTEGRATION')
+        if hasattr(self, 'client') and self.client is not None:
+            logging.info('DISCONNECTING FROM HIPCHAT SERVER')
+            self.client.socket.recv_data(self.client.stream_footer)
+            self.client.disconnect()
 
 
 class SarahHipChatException(Exception):
