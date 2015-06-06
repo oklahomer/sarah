@@ -117,10 +117,12 @@ class HipChat(threading.Thread):
 
         for command in self.commands:
             if msg['body'].startswith(command[0]):
-                plugin_config = {}
-                for (name, config) in self.config.get('plugins', ()):
+                for plugin in self.config.get('plugins', ()):
+                    name = plugin[0]
+                    config = plugin[1] if len(plugin) > 1 else {}
+
                     module_name = command[2]
-                    if module_name != name or config is None:
+                    if module_name != name:
                         continue
                     plugin_config = config
 

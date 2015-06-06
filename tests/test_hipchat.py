@@ -50,12 +50,13 @@ class TestInit(object):
         assert isinstance(hipchat.commands[1][1], types.FunctionType) is True
         assert hipchat.commands[1][2] == 'sarah.plugins.echo'
 
+
 class TestMessage(object):
     @pytest.fixture(scope='function')
     def hipchat(self, request):
         h = HipChat({'nick': 'Sarah',
                      'plugins': (('sarah.plugins.simple_counter', {}),
-                                 ('sarah.plugins.echo', {}))})
+                                 ('sarah.plugins.echo',))})
         h.setDaemon(True)
         h.start()
 
