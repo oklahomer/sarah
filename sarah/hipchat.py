@@ -101,6 +101,9 @@ class HipChat(threading.Thread):
             # Avoid answering to all past messages when joining the room.
             # xep_0203 plugin required.
             # http://xmpp.org/extensions/xep-0203.html
+            #
+            # FYI: When resource part of bot JabberID is 'bot' such as
+            # 12_34@chat.example.com/bot, HipChat won't send us past messages
             return
 
         if msg['type'] in ('normal', 'chat'):
