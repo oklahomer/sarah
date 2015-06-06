@@ -51,6 +51,35 @@ class TestInit(object):
         assert hipchat.commands[1][2] == 'sarah.plugins.echo'
 
 
+class TestFindCommand(object):
+    @pytest.fixture
+    def hipchat(self, request):
+        # NO h.start() for this test
+        h = HipChat({'nick': 'Sarah',
+                     'plugins': (
+                         ('sarah.plugins.simple_counter', {'spam': 'ham'}),
+                         ('sarah.plugins.echo', ))})
+        return h
+
+    def test_no_corresponding_command(self, hipchat):
+        command = hipchat.find_command('egg')
+        assert command is None
+
+    def test_echo(self, hipchat):
+        command = hipchat.find_command('.echo spam ham')
+        assert command['config'] == {}
+        assert command['name'] == '.echo'
+        assert command['module_name'] == 'sarah.plugins.echo'
+        assert isinstance(command['function'], types.FunctionType) is True
+
+    def test_count(self, hipchat):
+        command = hipchat.find_command('.count spam')
+        assert command['config'] == {'spam': 'ham'}
+        assert command['name'] == '.count'
+        assert command['module_name'] == 'sarah.plugins.simple_counter'
+        assert isinstance(command['function'], types.FunctionType) is True
+
+
 class TestMessage(object):
     @pytest.fixture(scope='function')
     def hipchat(self, request):

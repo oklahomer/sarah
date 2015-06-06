@@ -115,33 +115,40 @@ class HipChat(threading.Thread):
             if my_nick == sender_nick:
                 return
 
-        for command in self.commands:
-            if msg['body'].startswith(command[0]):
-                for plugin in self.config.get('plugins', ()):
-                    name = plugin[0]
-                    config = plugin[1] if len(plugin) > 1 else {}
+        command = self.find_command(msg['body'])
+        if command is None:
+            return
 
-                    module_name = command[2]
-                    if module_name != name:
-                        continue
-                    plugin_config = config
+        text = re.sub(r'{0}\s+'.format(command['name']), '', msg['body'])
+        ret = command['function']({'original_text': msg['body'],
+                                   'text': text,
+                                   'from': msg['from']},
+                                  command['config'])
+        if isinstance(ret, str):
+            msg.reply(ret).send()
+        elif isinstance(ret, numbers.Integral):
+            msg.reply(str(ret)).send()
+#        elif isinstance(ret, dict):
+#            pass
+        else:
+            logging.error('Malformed returning value. '
+                          'Command: %s. Value: %s.' %
+                          (command[1], str(ret)))
 
-                text = re.sub(r'{0}\s+'.format(command[0]), '', msg['body'])
-                ret = command[1]({'original_text': msg['body'],
-                                  'text': text,
-                                  'from': msg['from']},
-                                 plugin_config)
+    def find_command(self, text):
+        # Find the first registered command that matches the input text
+        command = next((c for c in self.commands if text.startswith(c[0])),
+                       None)
+        if command is None:
+            return None
 
-                if isinstance(ret, str):
-                    msg.reply(ret).send()
-                elif isinstance(ret, numbers.Integral):
-                    msg.reply(str(ret)).send()
-#                elif isinstance(ret, dict):
-#                    pass
-                else:
-                    logging.error('Malformed returning value. '
-                                  'Command: %s. Value: %s.' %
-                                  (command[1], str(ret)))
+        config = self.config.get('plugins', ())
+        plugin_info = next((i for i in config if i[0] == command[2]), ())
+
+        return {'name': command[0],
+                'function': command[1],
+                'module_name': command[2],
+                'config': plugin_info[1] if len(plugin_info) > 1 else {}}
 
     @property
     def commands(self):
