@@ -1,0 +1,17 @@
+language: python
+python:
+  - 3.3
+install:
+  - pip install -r requirements-dev.txt
+  - pip install coveralls
+script:
+  - env PYTHONPATH=. coverage run --source=sarah -m py.test
+  - coverage report --show-missing
+after_success:
+  - coveralls
+notifications:
+  irc:
+    channels:
+      - "chat.freenode.net#oklahomer"
+    on_success: always
+    on_failure: always
