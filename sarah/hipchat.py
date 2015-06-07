@@ -5,12 +5,14 @@ import threading
 import importlib
 import numbers
 import re
+from apscheduler.schedulers.background import BackgroundScheduler
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
 
 
 class HipChat(threading.Thread):
     __commands = []
+    __schedules = []
 
     def __init__(self, config):
 
@@ -18,12 +20,15 @@ class HipChat(threading.Thread):
 
         self.config = config
         self.client = self.setup_xmpp_client()
+        self.scheduler = self.setup_scheduler()
         self.load_plugins(self.config.get('plugins', []))
 
     def run(self):
         connected = self.client.connect()
         if not connected:
             raise SarahHipChatException('Coudn\'t connect to server.')
+        self.add_schedule_jobs(self.schedules)
+        self.scheduler.start()
         self.client.process(block=True)
 
     def setup_xmpp_client(self):
@@ -45,6 +50,10 @@ class HipChat(threading.Thread):
         client.register_plugin('xep_0203')
 
         return client
+
+    def setup_scheduler(self):
+        scheduler = BackgroundScheduler()
+        return scheduler
 
     def load_plugins(self, plugins):
         for module_config in plugins:
@@ -173,6 +182,55 @@ class HipChat(threading.Thread):
     @classmethod
     def add_command(cls, name, func, module_name):
         cls.__commands.append((name, func, module_name))
+
+    @classmethod
+    def schedule(cls, name):
+        def wrapper(func):
+            def wrapped_function(*args, **kwargs):
+                return func(*args, **kwargs)
+            cls.__schedules.append((name,
+                                    wrapped_function,
+                                    func.__module__))
+        return wrapper
+
+    @property
+    def schedules(self):
+        return self.__schedules
+
+    def add_schedule_jobs(self, jobs):
+        for job in jobs:
+            plugin_info = next((
+                i for i in self.config.get('plugins', ()) if i[0] == job[2]),
+                ())
+
+            if len(plugin_info) < 2:
+                logging.warning(
+                        'Missing configuration for schedule job. %s. '
+                        'Skipping.' % job[2])
+                continue
+
+            config = plugin_info[1]
+            if 'rooms' not in config:
+                logging.warning(
+                        'Missing rooms configuration for schedule job. %s. '
+                        'Skipping.' % job[2])
+                continue
+
+            def job_func():
+                ret = job[1]()
+                for room in config.get('rooms', []):
+                    self.client.send_message(
+                        mto=room,
+                        mbody=ret,
+                        mtype=config.get('message_type', 'groupchat'))
+
+            id = '%s.%s' % (job[2], job[0])
+            logging.info("Add schedule %s" % id)
+            self.scheduler.add_job(
+                    job_func,
+                    'interval',
+                    id=id,
+                    minutes=config.get('interval', 5))
 
     def stop(self):
         logging.info('STOP HIPCHAT INTEGRATION')
