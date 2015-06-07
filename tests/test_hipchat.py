@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import pytest
+import logging
+from apscheduler.triggers.interval import IntervalTrigger
 from sleekxmpp import ClientXMPP
 from sleekxmpp.test import TestSocket
 from sleekxmpp.stanza import Message
@@ -135,3 +137,53 @@ class TestMessage(object):
 
         stash = vars(sarah.plugins.simple_counter).get('__stash', {})
         assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
+
+
+class TestSchedule(object):
+    @pytest.fixture
+    def hipchat(self, request):
+        # NO h.start() for this test
+        h = HipChat({'nick': 'Sarah',
+                     'plugins': (
+                         ('sarah.plugins.bmw_quotes', {
+                             'rooms': ('123_homer@localhost', ),
+                             'interval': 5}))})
+        return h
+
+    def test_missing_config(self):
+        logging.warning = MagicMock()
+
+        h = HipChat({'nick': 'Sarah',
+                     'plugins': (('sarah.plugins.bmw_quotes', ), )})
+        h.add_schedule_jobs(h.schedules)
+
+        assert logging.warning.call_count == 1
+        assert logging.warning.call_args == call(
+                'Missing configuration for schedule job. '
+                'sarah.plugins.bmw_quotes. Skipping.')
+
+    def test_missing_rooms_config(self):
+        logging.warning = MagicMock()
+
+        h = HipChat({'nick': 'Sarah',
+                     'plugins': (('sarah.plugins.bmw_quotes', {}), )})
+        h.add_schedule_jobs(h.schedules)
+
+        assert logging.warning.call_count == 1
+        assert logging.warning.call_args == call(
+                'Missing rooms configuration for schedule job. '
+                'sarah.plugins.bmw_quotes. Skipping.')
+
+    def test_add_schedule_job(self):
+        logging.warning = MagicMock()
+
+        hipchat = HipChat({'nick': 'Sarah',
+                           'plugins': (('sarah.plugins.bmw_quotes', {
+                               'rooms': ('123_homer@localhost', )}), )})
+        hipchat.add_schedule_jobs(hipchat.schedules)
+
+        jobs = hipchat.scheduler.get_jobs()
+        assert len(jobs) == 1
+        assert jobs[0].id == 'sarah.plugins.bmw_quotes.bmw_quotes'
+        assert isinstance(jobs[0].trigger, IntervalTrigger) is True
+        assert jobs[0].trigger.interval_length == 300

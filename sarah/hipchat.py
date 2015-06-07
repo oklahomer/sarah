@@ -239,6 +239,9 @@ class HipChat(threading.Thread):
             self.client.socket.recv_data(self.client.stream_footer)
             self.client.disconnect()
 
+        if self.scheduler.running:
+            self.scheduler.shutdown()
+
 
 class SarahHipChatException(Exception):
     pass
