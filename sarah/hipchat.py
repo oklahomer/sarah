@@ -209,20 +209,20 @@ class HipChat(threading.Thread):
                         'Skipping.' % job[2])
                 continue
 
-            config = plugin_info[1]
-            if 'rooms' not in config:
+            plugin_config = plugin_info[1]
+            if 'rooms' not in plugin_config:
                 logging.warning(
                         'Missing rooms configuration for schedule job. %s. '
                         'Skipping.' % job[2])
                 continue
 
             def job_func():
-                ret = job[1]()
-                for room in config.get('rooms', []):
+                ret = job[1](plugin_config)
+                for room in plugin_config.get('rooms', []):
                     self.client.send_message(
                         mto=room,
                         mbody=ret,
-                        mtype=config.get('message_type', 'groupchat'))
+                        mtype=plugin_config.get('message_type', 'groupchat'))
 
             id = '%s.%s' % (job[2], job[0])
             logging.info("Add schedule %s" % id)
@@ -230,7 +230,7 @@ class HipChat(threading.Thread):
                     job_func,
                     'interval',
                     id=id,
-                    minutes=config.get('interval', 5))
+                    minutes=plugin_config.get('interval', 5))
 
     def stop(self):
         logging.info('STOP HIPCHAT INTEGRATION')

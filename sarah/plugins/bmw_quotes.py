@@ -34,5 +34,5 @@ def quote(msg, config):
 
 
 @HipChat.schedule('bmw_quotes')
-def scheduled_quote():
+def scheduled_quote(config):
     return random.choice(quotes)

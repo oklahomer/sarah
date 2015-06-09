@@ -175,11 +175,10 @@ class TestSchedule(object):
                 'sarah.plugins.bmw_quotes. Skipping.')
 
     def test_add_schedule_job(self):
-        logging.warning = MagicMock()
-
-        hipchat = HipChat({'nick': 'Sarah',
-                           'plugins': (('sarah.plugins.bmw_quotes', {
-                               'rooms': ('123_homer@localhost', )}), )})
+        hipchat = HipChat({
+            'nick': 'Sarah',
+            'plugins': (('sarah.plugins.bmw_quotes',
+                         {'rooms': ('123_homer@localhost', )}), )})
         hipchat.add_schedule_jobs(hipchat.schedules)
 
         jobs = hipchat.scheduler.get_jobs()
@@ -187,3 +186,4 @@ class TestSchedule(object):
         assert jobs[0].id == 'sarah.plugins.bmw_quotes.bmw_quotes'
         assert isinstance(jobs[0].trigger, IntervalTrigger) is True
         assert jobs[0].trigger.interval_length == 300
+        assert isinstance(jobs[0].func, types.FunctionType) is True
