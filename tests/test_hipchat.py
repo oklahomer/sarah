@@ -5,8 +5,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sleekxmpp import ClientXMPP
 from sleekxmpp.test import TestSocket
 from sleekxmpp.stanza import Message
-from mock import MagicMock, call
-from sarah.hipchat import HipChat
+from mock import MagicMock, call, patch
+from sarah.hipchat import HipChat, SarahHipChatException
 import sarah.plugins.simple_counter
 import types
 
@@ -33,7 +33,11 @@ class TestInit(object):
                            'jid': 'test@localhost',
                            'password': 'password',
                            'plugins': (('sarah.plugins.simple_counter', {}),
-                                       ('sarah.plugins.echo', {}))})
+                                       ('sarah.plugins.echo', {})),
+                           'proxy': {'host': 'localhost',
+                                     'port': 1234,
+                                     'username': 'homers',
+                                     'password': 'mypassword'}})
 
         assert isinstance(hipchat, HipChat) is True
         assert isinstance(hipchat.client, ClientXMPP) is True
@@ -45,6 +49,61 @@ class TestInit(object):
         assert hipchat.commands[1][0] == '.echo'
         assert isinstance(hipchat.commands[1][1], types.FunctionType) is True
         assert hipchat.commands[1][2] == 'sarah.plugins.echo'
+
+        assert hipchat.client.use_proxy is True
+        assert hipchat.client.proxy_config == {'host': 'localhost',
+                                               'port': 1234,
+                                               'username': 'homers',
+                                               'password': 'mypassword'}
+
+    def test_non_existing_plugin(self):
+        logging.warning = MagicMock()
+        HipChat({'nick': 'Sarah',
+                 'jid': 'test@localhost',
+                 'password': 'password',
+                 'plugins': (('spam.ham.egg.onion', {}), )})
+        assert logging.warning.call_count == 1
+        assert logging.warning.call_args == call(
+                'Failed to load spam.ham.egg.onion. '
+                'No module named \'spam\'. Skipping.')
+
+    def test_connection_fail(self):
+        hipchat = HipChat({'nick': 'Sarah',
+                           'jid': 'test@localhost',
+                           'password': 'password'})
+
+        with patch.object(
+                hipchat.client,
+                'connect',
+                return_value=False) as _mock_connect:
+
+            with pytest.raises(SarahHipChatException) as e:
+                hipchat.run()
+
+            assert e.value.args[0] == 'Couldn\'t connect to server.'
+            assert _mock_connect.call_count == 1
+
+    def test_run(self):
+        hipchat = HipChat({'nick': 'Sarah',
+                           'jid': 'test@localhost',
+                           'password': 'password'})
+
+        with patch.object(hipchat.client, 'connect', return_value=True):
+
+            with patch.object(
+                    hipchat.scheduler,
+                    'start',
+                    return_value=True) as mock_scheduler_start:
+
+                with patch.object(
+                        hipchat.client,
+                        'process',
+                        return_value=True) as mock_client_process:
+
+                    hipchat.run()
+
+                assert mock_scheduler_start.call_count == 1
+                assert mock_client_process.call_count == 1
 
 
 class TestFindCommand(object):

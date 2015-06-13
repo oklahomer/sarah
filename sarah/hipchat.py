@@ -24,9 +24,8 @@ class HipChat(threading.Thread):
         self.load_plugins(self.config.get('plugins', []))
 
     def run(self):
-        connected = self.client.connect()
-        if not connected:
-            raise SarahHipChatException('Coudn\'t connect to server.')
+        if not self.client.connect():
+            raise SarahHipChatException('Couldn\'t connect to server.')
         self.add_schedule_jobs(self.schedules)
         self.scheduler.start()
         self.client.process(block=True)
@@ -34,11 +33,10 @@ class HipChat(threading.Thread):
     def setup_xmpp_client(self):
         client = ClientXMPP(self.config['jid'], self.config['password'])
 
-        if 'proxy_setting' in self.config:
+        if 'proxy' in self.config:
             client.use_proxy = True
-            client.proxy_config = {}
             for key in ('host', 'port', 'username', 'password'):
-                client.proxy_config[key] = self.config.get(key, None)
+                client.proxy_config[key] = self.config['proxy'].get(key, None)
 
         # TODO check later
         # client.add_event_handler('ssl_invalid_cert', lambda cert: True)
@@ -63,8 +61,8 @@ class HipChat(threading.Thread):
         try:
             importlib.import_module(module_name)
         except Exception as e:
-            logging.error(e)
-            logging.error('Failed to load %s. Skipping.' % module_name)
+            logging.warning('Failed to load %s. %s. Skipping.' % (module_name,
+                                                                  e))
             return
 
         logging.info('Loaded plugin. %s' % module_name)
