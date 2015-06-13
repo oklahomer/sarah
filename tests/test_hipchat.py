@@ -11,33 +11,27 @@ import sarah.plugins.simple_counter
 import types
 
 
-def create_xmpp(self):
-    # see sleekxmpp.test.sleektest for more
-    xmpp = ClientXMPP('test@localhost', 'password', sasl_mech=None)
-    xmpp._id_prefix = ''
-    xmpp._disconnect_wait_for_threads = False
-    xmpp.default_lang = None
-    xmpp.peer_default_lang = None
-    xmpp.set_socket(TestSocket())
-    xmpp.auto_reconnect = False
-    xmpp.state._set_state('connect')
-    xmpp.socket.recv_data(xmpp.stream_header)
+class MockXMPP(ClientXMPP):
+    def __init__(self, *args):
+        super().__init__(*args, sasl_mech=None)
+        self._id_prefix = ''
+        self._disconnect_wait_for_threads = False
+        self.default_lang = None
+        self.peer_default_lang = None
+        self.set_socket(TestSocket())
+        self.auto_reconnect = False
+        self.state._set_state('connect')
+        self.socket.recv_data(self.stream_header)
+        self.use_message_ids = False
 
-    xmpp.add_event_handler('roster_update', self.join_rooms)
-    xmpp.add_event_handler('session_start', self.session_start)
-    xmpp.add_event_handler('message', self.message)
-    xmpp.register_plugin('xep_0045')
-    xmpp.register_plugin('xep_0203')
-
-    xmpp.use_message_ids = False
-    return xmpp
-
-HipChat.setup_xmpp_client = create_xmpp
+sarah.hipchat.ClientXMPP = MockXMPP
 
 
 class TestInit(object):
     def test_init(self):
         hipchat = HipChat({'nick': 'Sarah',
+                           'jid': 'test@localhost',
+                           'password': 'password',
                            'plugins': (('sarah.plugins.simple_counter', {}),
                                        ('sarah.plugins.echo', {}))})
 
@@ -58,6 +52,8 @@ class TestFindCommand(object):
     def hipchat(self, request):
         # NO h.start() for this test
         h = HipChat({'nick': 'Sarah',
+                     'jid': 'test@localhost',
+                     'password': 'password',
                      'plugins': (
                          ('sarah.plugins.simple_counter', {'spam': 'ham'}),
                          ('sarah.plugins.echo', ))})
@@ -86,6 +82,8 @@ class TestMessage(object):
     @pytest.fixture(scope='function')
     def hipchat(self, request):
         h = HipChat({'nick': 'Sarah',
+                     'jid': 'test@localhost',
+                     'password': 'password',
                      'plugins': (('sarah.plugins.simple_counter', {}),
                                  ('sarah.plugins.echo',))})
         h.setDaemon(True)
@@ -144,6 +142,8 @@ class TestSchedule(object):
     def hipchat(self, request):
         # NO h.start() for this test
         h = HipChat({'nick': 'Sarah',
+                     'jid': 'test@localhost',
+                     'password': 'password',
                      'plugins': (
                          ('sarah.plugins.bmw_quotes', {
                              'rooms': ('123_homer@localhost', ),
@@ -154,6 +154,8 @@ class TestSchedule(object):
         logging.warning = MagicMock()
 
         h = HipChat({'nick': 'Sarah',
+                     'jid': 'test@localhost',
+                     'password': 'password',
                      'plugins': (('sarah.plugins.bmw_quotes', ), )})
         h.add_schedule_jobs(h.schedules)
 
@@ -166,6 +168,8 @@ class TestSchedule(object):
         logging.warning = MagicMock()
 
         h = HipChat({'nick': 'Sarah',
+                     'jid': 'test@localhost',
+                     'password': 'password',
                      'plugins': (('sarah.plugins.bmw_quotes', {}), )})
         h.add_schedule_jobs(h.schedules)
 
@@ -177,6 +181,8 @@ class TestSchedule(object):
     def test_add_schedule_job(self):
         hipchat = HipChat({
             'nick': 'Sarah',
+            'jid': 'test@localhost',
+            'password': 'password',
             'plugins': (('sarah.plugins.bmw_quotes',
                          {'rooms': ('123_homer@localhost', )}), )})
         hipchat.add_schedule_jobs(hipchat.schedules)
