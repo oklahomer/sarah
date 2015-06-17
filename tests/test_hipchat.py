@@ -196,6 +196,43 @@ class TestMessage(object):
         assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
 
 
+class TestJoinRooms(object):
+    def test_success(self):
+        h = HipChat({'nick': 'Sarah',
+                     'jid': 'test@localhost',
+                     'rooms': ['123_homer@localhost'],
+                     'password': 'password',
+                     'plugins': ()})
+
+        with patch.object(h.client.plugin['xep_0045'].xmpp,
+                          'send',
+                          return_value=None) as _mock_send:
+
+            h.join_rooms(None)
+
+            assert _mock_send.call_count == 1
+            assert h.client.plugin['xep_0045'].rooms == {
+                    '123_homer@localhost': {}}
+            assert h.client.plugin['xep_0045'].ourNicks == {
+                    '123_homer@localhost': h.config['nick']}
+
+    def test_no_setting(self):
+        h = HipChat({'nick': 'Sarah',
+                     'jid': 'test@localhost',
+                     'password': 'password',
+                     'plugins': ()})
+
+        with patch.object(h.client.plugin['xep_0045'].xmpp,
+                          'send',
+                          return_value=None) as _mock_send:
+
+            h.join_rooms(None)
+
+            assert _mock_send.call_count == 0
+            assert h.client.plugin['xep_0045'].rooms == {}
+            assert h.client.plugin['xep_0045'].ourNicks == {}
+
+
 class TestSchedule(object):
     @pytest.fixture
     def hipchat(self, request):

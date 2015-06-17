@@ -93,11 +93,8 @@ class HipChat(threading.Thread):
             raise SarahHipChatException('Unknown error occured.')
 
     def join_rooms(self, event):
-        if 'rooms' not in self.config:
-            return
-
         # You MUST explicitely join rooms to receive message via XMPP interface
-        for room in self.config['rooms']:
+        for room in self.config.get('rooms', []):
             self.client.plugin['xep_0045'].joinMUC(room,
                                                    self.config.get('nick', ''),
                                                    maxhistory=None,
