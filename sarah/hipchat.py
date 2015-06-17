@@ -80,17 +80,18 @@ class HipChat(threading.Thread):
         try:
             self.client.get_roster()
         except IqTimeout as e:
-            raise SarahHipChatException('Timeout occured while getting roster.'
-                                        'Error type: %s. Condition: %s.' %
-                                        e.etype, e.condition)
+            raise SarahHipChatException(
+                    'Timeout occured while getting roster. '
+                    'Error type: %s. Condition: %s.' % (
+                        e.etype, e.condition))
         except IqError as e:
             # ret['type'] == 'error'
-            raise SarahHipChatException('Timeout occured while getting roster.'
-                                        'Error type: %s. Condition: %s.'
-                                        'Content: %s.' %
-                                        e.etype, e.condition, e.text)
-        except:
-            raise SarahHipChatException('Unknown error occured.')
+            raise SarahHipChatException(
+                    'IQError while getting roster. '
+                    'Error type: %s. Condition: %s. Content: %s.' % (
+                        e.etype, e.condition, e.text))
+        except Exception as e:
+            raise SarahHipChatException('Unknown error occured: %s.' % e)
 
     def join_rooms(self, event):
         # You MUST explicitely join rooms to receive message via XMPP interface

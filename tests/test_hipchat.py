@@ -5,6 +5,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sleekxmpp import ClientXMPP
 from sleekxmpp.test import TestSocket
 from sleekxmpp.stanza import Message
+from sleekxmpp.exceptions import IqTimeout, IqError
 from mock import MagicMock, call, patch
 from sarah.hipchat import HipChat, SarahHipChatException
 import sarah.plugins.simple_counter
@@ -194,6 +195,75 @@ class TestMessage(object):
 
         stash = vars(sarah.plugins.simple_counter).get('__stash', {})
         assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
+
+
+class TestSessionStart(object):
+    @pytest.fixture
+    def hipchat(self, request):
+        # NO h.start() for this test
+        return HipChat({'nick': 'Sarah',
+                        'jid': 'test@localhost',
+                        'password': 'password',
+                        'plugins': ()})
+
+    def throw_iq_timeout(self):
+        raise IqTimeout(None)
+
+    def throw_iq_error(self):
+        raise IqError({'error': {'condition': 'ham',
+                                 'text': 'egg',
+                                 'type': 'spam'}})
+
+    def throw_exception(self):
+        raise Exception('spam.ham.egg')
+
+    def test_timeout(self, hipchat):
+        with patch.object(hipchat.client, 'send_presence', return_value=None):
+
+            with patch.object(
+                    hipchat.client,
+                    'get_roster',
+                    side_effect=self.throw_iq_timeout) as _mock_get_roster:
+
+                with pytest.raises(SarahHipChatException) as e:
+                    hipchat.session_start(None)
+
+                assert _mock_get_roster.call_count == 1
+                assert e.value.args[0] == (
+                        'Timeout occured while getting roster. '
+                        'Error type: cancel. '
+                        'Condition: remote-server-timeout.')
+
+    def test_unknown_error(self, hipchat):
+        with patch.object(hipchat.client, 'send_presence', return_value=None):
+
+            with patch.object(
+                    hipchat.client,
+                    'get_roster',
+                    side_effect=self.throw_exception) as _mock_get_roster:
+
+                with pytest.raises(SarahHipChatException) as e:
+                    hipchat.session_start(None)
+
+                assert _mock_get_roster.call_count == 1
+                assert e.value.args[0] == (
+                        'Unknown error occured: spam.ham.egg.')
+
+    def test_iq_error(self, hipchat):
+        with patch.object(hipchat.client, 'send_presence', return_value=None):
+
+            with patch.object(
+                    hipchat.client,
+                    'get_roster',
+                    side_effect=self.throw_iq_error) as _mock_get_roster:
+
+                with pytest.raises(SarahHipChatException) as e:
+                    hipchat.session_start(None)
+
+                assert _mock_get_roster.call_count == 1
+                assert e.value.args[0] == (
+                        'IQError while getting roster. '
+                        'Error type: spam. Condition: ham. Content: egg.')
 
 
 class TestJoinRooms(object):
