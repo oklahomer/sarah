@@ -46,11 +46,15 @@ class TestInit(object):
 
         assert hipchat.commands[0][0] == '.count'
         assert hipchat.commands[0][2] == 'sarah.plugins.simple_counter'
+        assert isinstance(hipchat.commands[0][1], types.FunctionType) is True
+
+        assert hipchat.commands[1][0] == '.reset_count'
+        assert hipchat.commands[1][2] == 'sarah.plugins.simple_counter'
         assert isinstance(hipchat.commands[1][1], types.FunctionType) is True
 
-        assert hipchat.commands[1][0] == '.echo'
-        assert isinstance(hipchat.commands[1][1], types.FunctionType) is True
-        assert hipchat.commands[1][2] == 'sarah.plugins.echo'
+        assert hipchat.commands[2][0] == '.echo'
+        assert hipchat.commands[2][2] == 'sarah.plugins.echo'
+        assert isinstance(hipchat.commands[2][1], types.FunctionType) is True
 
         assert hipchat.client.use_proxy is True
         assert hipchat.client.proxy_config == {'host': 'localhost',

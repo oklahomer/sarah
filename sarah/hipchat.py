@@ -168,6 +168,7 @@ class HipChat(object):
                              (func.__module__, name))
             else:
                 cls.add_command(name, wrapped_function, func.__module__)
+                return wrapped_function
         return wrapper
 
     @classmethod

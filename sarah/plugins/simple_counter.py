@@ -14,3 +14,10 @@ def count(msg, config):
     __stash[msg['from']][msg['text']] = cnt
 
     return cnt
+
+
+@HipChat.command('.reset_count')
+def reset_count(msg, config):
+    global __stash
+    __stash = {}
+    return 'restart counting'
