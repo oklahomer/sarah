@@ -63,9 +63,8 @@ class HipChat(threading.Thread):
         except Exception as e:
             logging.warning('Failed to load %s. %s. Skipping.' % (module_name,
                                                                   e))
-            return
-
-        logging.info('Loaded plugin. %s' % module_name)
+        else:
+            logging.info('Loaded plugin. %s' % module_name)
 
     def session_start(self, event):
         self.client.send_presence()
@@ -229,14 +228,16 @@ class HipChat(threading.Thread):
                     minutes=plugin_config.get('interval', 5))
 
     def stop(self):
-        logging.info('STOP HIPCHAT INTEGRATION')
-        if hasattr(self, 'client') and self.client is not None:
-            logging.info('DISCONNECTING FROM HIPCHAT SERVER')
-            self.client.socket.recv_data(self.client.stream_footer)
-            self.client.disconnect()
-
+        logging.info('STOP SCHEDULER')
         if self.scheduler.running:
             self.scheduler.shutdown()
+            logging.info('CANCELLED SCHEDULED WORK')
+
+        logging.info('STOP HIPCHAT INTEGRATION')
+        if hasattr(self, 'client') and self.client is not None:
+            self.client.socket.recv_data(self.client.stream_footer)
+            self.client.disconnect()
+            logging.info('DISCONNECTED FROM HIPCHAT SERVER')
 
 
 class SarahHipChatException(Exception):
