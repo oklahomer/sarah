@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pytest
 import logging
+from threading import Thread
 from apscheduler.triggers.interval import IntervalTrigger
 from sleekxmpp import ClientXMPP
 from sleekxmpp.test import TestSocket
@@ -146,9 +147,7 @@ class TestMessage(object):
                      'password': 'password',
                      'plugins': (('sarah.plugins.simple_counter', {}),
                                  ('sarah.plugins.echo',))})
-        h.setDaemon(True)
-        h.start()
-
+        Thread(target=h.run)
         request.addfinalizer(h.stop)
 
         return h

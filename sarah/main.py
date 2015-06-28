@@ -3,6 +3,7 @@
 import logging
 import os
 import yaml
+from threading import Thread
 from sarah.hipchat import HipChat
 
 
@@ -15,7 +16,8 @@ class Sarah(object):
         if 'hipchat' in self.config:
             logging.info('Start HipChat integration')
             hipchat = HipChat(self.config['hipchat'])
-            hipchat.start()
+            hipchat_thread = Thread(target=hipchat.run)
+            hipchat_thread.start()
 
 #        if 'irc' in self.config:
 #            logging.info('Start IRC integration')

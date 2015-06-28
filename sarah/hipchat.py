@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import threading
 import importlib
 import numbers
 import re
@@ -10,14 +9,11 @@ from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
 
 
-class HipChat(threading.Thread):
+class HipChat(object):
     __commands = []
     __schedules = []
 
     def __init__(self, config):
-
-        threading.Thread.__init__(self)
-
         self.config = config
         self.client = self.setup_xmpp_client()
         self.scheduler = self.setup_scheduler()
