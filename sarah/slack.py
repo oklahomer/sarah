@@ -5,13 +5,15 @@ import logging
 import websocket
 import requests
 from requests.compat import json
+from sarah.bot_base import BotBase
 
 
-class Slack(object):
+class Slack(BotBase):
     def __init__(self, config):
-        self.config = config
+        super().__init__(config)
         self.setup_client()
         self.message_id = 0
+        self.load_plugins(self.config.get('plugins', []))
 
     def setup_client(self):
         self.client = SlackClient(token=self.config.get('token', ''))
@@ -120,6 +122,10 @@ class Slack(object):
         # integer ID. All replies to that message will include this ID.
         self.message_id += 1
         return self.message_id
+
+    def stop():
+        # TODO
+        pass
 
 
 class SlackClient(object):

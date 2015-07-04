@@ -1,20 +1,16 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import importlib
 import numbers
 import re
-from apscheduler.schedulers.background import BackgroundScheduler
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
+from sarah.bot_base import BotBase
 
 
-class HipChat(object):
-    __commands = []
-    __schedules = []
-
+class HipChat(BotBase):
     def __init__(self, config):
-        self.config = config
+        super().__init__(config)
         self.client = self.setup_xmpp_client()
         self.scheduler = self.setup_scheduler()
         self.load_plugins(self.config.get('plugins', []))
@@ -44,23 +40,6 @@ class HipChat(object):
         client.register_plugin('xep_0203')
 
         return client
-
-    def setup_scheduler(self):
-        scheduler = BackgroundScheduler()
-        return scheduler
-
-    def load_plugins(self, plugins):
-        for module_config in plugins:
-            self.load_plugin(module_config[0])
-
-    def load_plugin(self, module_name):
-        try:
-            importlib.import_module(module_name)
-        except Exception as e:
-            logging.warning('Failed to load %s. %s. Skipping.' % (module_name,
-                                                                  e))
-        else:
-            logging.info('Loaded plugin. %s' % module_name)
 
     def session_start(self, event):
         self.client.send_presence()
@@ -135,96 +114,6 @@ class HipChat(object):
             logging.error('Malformed returning value. '
                           'Command: %s. Value: %s.' %
                           (command[1], str(ret)))
-
-    def find_command(self, text):
-        # Find the first registered command that matches the input text
-        command = next((c for c in self.commands if text.startswith(c[0])),
-                       None)
-        if command is None:
-            return None
-
-        config = self.config.get('plugins', ())
-        plugin_info = next((i for i in config if i[0] == command[2]), ())
-
-        return {'name': command[0],
-                'function': command[1],
-                'module_name': command[2],
-                'config': plugin_info[1] if len(plugin_info) > 1 else {}}
-
-    @property
-    def commands(self):
-        return self.__commands
-
-    @classmethod
-    def command(cls, name):
-        def wrapper(func):
-            def wrapped_function(*args, **kwargs):
-                return func(*args, **kwargs)
-
-            if name in [command_set[0] for command_set in cls.__commands]:
-                logging.info("Skip duplicate command. "
-                             "module: %s. command: %s." %
-                             (func.__module__, name))
-            else:
-                cls.add_command(name, wrapped_function, func.__module__)
-                return wrapped_function
-
-        return wrapper
-
-    @classmethod
-    def add_command(cls, name, func, module_name):
-        cls.__commands.append((name, func, module_name))
-
-    @classmethod
-    def schedule(cls, name):
-        def wrapper(func):
-            def wrapped_function(*args, **kwargs):
-                return func(*args, **kwargs)
-
-            cls.__schedules.append((name,
-                                    wrapped_function,
-                                    func.__module__))
-
-        return wrapper
-
-    @property
-    def schedules(self):
-        return self.__schedules
-
-    def add_schedule_jobs(self, jobs):
-        for job in jobs:
-            plugin_info = next((
-                i for i in self.config.get('plugins', ()) if i[0] == job[2]),
-                ())
-
-            if len(plugin_info) < 2:
-                logging.warning(
-                    'Missing configuration for schedule job. %s. '
-                    'Skipping.' % job[2])
-                continue
-
-            plugin_config = plugin_info[1]
-            if 'rooms' not in plugin_config:
-                logging.warning(
-                    'Missing rooms configuration for schedule job. %s. '
-                    'Skipping.' % job[2])
-                continue
-
-            def job_func():
-                ret = job[1](plugin_config)
-                for room in plugin_config.get('rooms', []):
-                    self.client.send_message(
-                        mto=room,
-                        mbody=ret,
-                        mtype=plugin_config.get('message_type', 'groupchat'))
-
-            job_id = '%s.%s' % (job[2], job[0])
-            logging.info("Add schedule %s" % id)
-            self.scheduler.add_job(
-                job_func,
-                'interval',
-                id=job_id,
-                minutes=plugin_config.get('interval', 5))
 
     def stop(self):
         logging.info('STOP SCHEDULER')
