@@ -27,6 +27,10 @@ class Slack(BotBase):
                                          on_close=self.on_close)
         self.ws.run_forever()
 
+    def add_schedule_job(self, name, func, module_name, plugin_config):
+        # TODO
+        raise NotImplementedError('Hold your horses.')
+
     def message(self, ws, event):
         decoded_event = json.loads(event)
 
@@ -125,7 +129,7 @@ class Slack(BotBase):
 
     def stop():
         # TODO
-        pass
+        raise NotImplementedError('hold your horses')
 
 
 class SlackClient(object):

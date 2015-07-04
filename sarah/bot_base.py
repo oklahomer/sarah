@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import abc
+import imp
 import importlib
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
+import sys
 
 
 class BotBase(object, metaclass=abc.ABCMeta):
@@ -12,6 +14,14 @@ class BotBase(object, metaclass=abc.ABCMeta):
     def __init__(self, config):
         self.config = config
 
+        # Reset to ease tests in one file
+        self.__commands[self.__class__.__name__] = []
+        self.__schedules[self.__class__.__name__] = []
+
+        self.scheduler = BackgroundScheduler()
+        self.load_plugins(self.config.get('plugins', []))
+        self.add_schedule_jobs(self.schedules)
+
     @abc.abstractmethod
     def run(self):
         pass
@@ -20,22 +30,25 @@ class BotBase(object, metaclass=abc.ABCMeta):
     def stop(self):
         pass
 
+    @abc.abstractmethod
+    def add_schedule_job(self):
+        pass
+
     def load_plugins(self, plugins):
         for module_config in plugins:
             self.load_plugin(module_config[0])
 
     def load_plugin(self, module_name):
         try:
-            importlib.import_module(module_name)
+            if module_name in sys.modules.keys():
+                imp.reload(sys.modules[module_name])
+            else:
+                importlib.import_module(module_name)
         except Exception as e:
             logging.warning('Failed to load %s. %s. Skipping.' % (module_name,
                                                                   e))
         else:
             logging.info('Loaded plugin. %s' % module_name)
-
-    def setup_scheduler(self):
-        scheduler = BackgroundScheduler()
-        return scheduler
 
     def find_command(self, text):
         # Find the first registered command that matches the input text
@@ -58,22 +71,29 @@ class BotBase(object, metaclass=abc.ABCMeta):
 
     @classmethod
     def schedule(cls, name):
+        if cls.__name__ not in cls.__schedules:
+            cls.__schedules[cls.__name__] = []
+
         def wrapper(func):
             def wrapped_function(*args, **kwargs):
                 return func(*args, **kwargs)
 
-            if cls.__name__ not in cls.__schedules:
-                cls.__schedules[cls.__name__] = []
-            cls.__schedules[cls.__name__].append((name,
-                                                  wrapped_function,
-                                                  func.__module__))
+            if name in [schedule_set[0] for schedule_set in
+                        cls.__schedules[cls.__name__]]:
+                logging.info("Skip duplicate schedule. "
+                             "module: %s. command: %s." %
+                             (func.__module__, name))
+            else:
+                cls.__schedules[cls.__name__].append((name,
+                                                      wrapped_function,
+                                                      func.__module__))
 
         return wrapper
 
     def add_schedule_jobs(self, jobs):
         for job in jobs:
-            plugin_info = next((
-                i for i in self.config.get('plugins', ()) if i[0] == job[2]),
+            plugin_info = next(
+                (i for i in self.config.get('plugins', ()) if i[0] == job[2]),
                 ())
 
             if len(plugin_info) < 2:
@@ -83,27 +103,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
                 continue
 
             plugin_config = plugin_info[1]
-            if 'rooms' not in plugin_config:
-                logging.warning(
-                    'Missing rooms configuration for schedule job. %s. '
-                    'Skipping.' % job[2])
-                continue
-
-            def job_func():
-                ret = job[1](plugin_config)
-                for room in plugin_config.get('rooms', []):
-                    self.client.send_message(
-                        mto=room,
-                        mbody=ret,
-                        mtype=plugin_config.get('message_type', 'groupchat'))
-
-            job_id = '%s.%s' % (job[2], job[0])
-            logging.info("Add schedule %s" % id)
-            self.scheduler.add_job(
-                job_func,
-                'interval',
-                id=job_id,
-                minutes=plugin_config.get('interval', 5))
+            self.add_schedule_job(job[0], job[1], job[2], plugin_config)
 
     @property
     def commands(self):

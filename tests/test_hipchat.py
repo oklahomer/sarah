@@ -64,15 +64,12 @@ class TestInit(object):
                                                'password': 'mypassword'}
 
     def test_non_existing_plugin(self):
-        logging.warning = MagicMock()
-        HipChat({'nick': 'Sarah',
-                 'jid': 'test@localhost',
-                 'password': 'password',
-                 'plugins': (('spam.ham.egg.onion', {}),)})
-        assert logging.warning.call_count == 1
-        assert logging.warning.call_args == call(
-            'Failed to load spam.ham.egg.onion. '
-            'No module named \'spam\'. Skipping.')
+        h = HipChat({'nick': 'Sarah',
+                     'jid': 'test@localhost',
+                     'password': 'password',
+                     'plugins': (('spam.ham.egg.onion', {}),)})
+        assert len(h.commands) == 0
+        assert len(h.scheduler.get_jobs()) == 0
 
     def test_connection_fail(self):
         hipchat = HipChat({'nick': 'Sarah',
@@ -311,11 +308,10 @@ class TestSchedule(object):
     def test_missing_config(self):
         logging.warning = MagicMock()
 
-        h = HipChat({'nick': 'Sarah',
-                     'jid': 'test@localhost',
-                     'password': 'password',
-                     'plugins': (('sarah.plugins.bmw_quotes',),)})
-        h.add_schedule_jobs(h.schedules)
+        HipChat({'nick': 'Sarah',
+                 'jid': 'test@localhost',
+                 'password': 'password',
+                 'plugins': (('sarah.plugins.bmw_quotes',),)})
 
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
@@ -325,11 +321,10 @@ class TestSchedule(object):
     def test_missing_rooms_config(self):
         logging.warning = MagicMock()
 
-        h = HipChat({'nick': 'Sarah',
-                     'jid': 'test@localhost',
-                     'password': 'password',
-                     'plugins': (('sarah.plugins.bmw_quotes', {}),)})
-        h.add_schedule_jobs(h.schedules)
+        HipChat({'nick': 'Sarah',
+                 'jid': 'test@localhost',
+                 'password': 'password',
+                 'plugins': (('sarah.plugins.bmw_quotes', {}),)})
 
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
@@ -343,7 +338,6 @@ class TestSchedule(object):
             'password': 'password',
             'plugins': (('sarah.plugins.bmw_quotes',
                          {'rooms': ('123_homer@localhost',)}),)})
-        hipchat.add_schedule_jobs(hipchat.schedules)
 
         jobs = hipchat.scheduler.get_jobs()
         assert len(jobs) == 1

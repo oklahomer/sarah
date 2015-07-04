@@ -12,13 +12,33 @@ class HipChat(BotBase):
     def __init__(self, config):
         super().__init__(config)
         self.client = self.setup_xmpp_client()
-        self.scheduler = self.setup_scheduler()
-        self.load_plugins(self.config.get('plugins', []))
+
+    def add_schedule_job(self, name, func, module_name, plugin_config):
+        if 'rooms' not in plugin_config:
+            logging.warning(
+                'Missing rooms configuration for schedule job. %s. '
+                'Skipping.' % module_name)
+            return
+
+        def job_func():
+            ret = func(plugin_config)
+            for room in plugin_config.get('rooms', []):
+                self.client.send_message(
+                    mto=room,
+                    mbody=ret,
+                    mtype=plugin_config.get('message_type', 'groupchat'))
+
+        job_id = '%s.%s' % (module_name, name)
+        logging.info("Add schedule %s" % id)
+        self.scheduler.add_job(
+            job_func,
+            'interval',
+            id=job_id,
+            minutes=plugin_config.get('interval', 5))
 
     def run(self):
         if not self.client.connect():
             raise SarahHipChatException('Couldn\'t connect to server.')
-        self.add_schedule_jobs(self.schedules)
         self.scheduler.start()
         self.client.process(block=True)
 
