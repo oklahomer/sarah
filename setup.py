@@ -10,11 +10,12 @@ SOURCE_DIR = os.path.join(ROOT_DIR)
 
 try:
     import pypandoc
+
     long_description = pypandoc.convert('README.md', 'rst')
 except(IOError, ImportError, OSError, RuntimeError):
     try:
         long_description = open(os.path.join(
-                                os.path.dirname(__file__), 'README.md')).read()
+            os.path.dirname(__file__), 'README.md')).read()
     except:
         long_description = DESCRIPTION + '\n'
 

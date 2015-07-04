@@ -12,4 +12,4 @@ class TestInit(object):
         with pytest.raises(SarahException) as e:
             Sarah(config_paths=non_existing_paths)
         assert e.value.args[0] == 'Configuration file does not exist. %s' % (
-                                  non_existing_paths[0])
+            non_existing_paths[0])

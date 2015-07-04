@@ -26,6 +26,7 @@ class MockXMPP(ClientXMPP):
         self.socket.recv_data(self.stream_header)
         self.use_message_ids = False
 
+
 sarah.hipchat.ClientXMPP = MockXMPP
 
 
@@ -67,11 +68,11 @@ class TestInit(object):
         HipChat({'nick': 'Sarah',
                  'jid': 'test@localhost',
                  'password': 'password',
-                 'plugins': (('spam.ham.egg.onion', {}), )})
+                 'plugins': (('spam.ham.egg.onion', {}),)})
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
-                'Failed to load spam.ham.egg.onion. '
-                'No module named \'spam\'. Skipping.')
+            'Failed to load spam.ham.egg.onion. '
+            'No module named \'spam\'. Skipping.')
 
     def test_connection_fail(self):
         hipchat = HipChat({'nick': 'Sarah',
@@ -82,7 +83,6 @@ class TestInit(object):
                 hipchat.client,
                 'connect',
                 return_value=False) as _mock_connect:
-
             with pytest.raises(SarahHipChatException) as e:
                 hipchat.run()
 
@@ -95,17 +95,14 @@ class TestInit(object):
                            'password': 'password'})
 
         with patch.object(hipchat.client, 'connect', return_value=True):
-
             with patch.object(
                     hipchat.scheduler,
                     'start',
                     return_value=True) as mock_scheduler_start:
-
                 with patch.object(
                         hipchat.client,
                         'process',
                         return_value=True) as mock_client_process:
-
                     hipchat.run()
 
                 assert mock_scheduler_start.call_count == 1
@@ -121,7 +118,7 @@ class TestFindCommand(object):
                      'password': 'password',
                      'plugins': (
                          ('sarah.plugins.simple_counter', {'spam': 'ham'}),
-                         ('sarah.plugins.echo', ))})
+                         ('sarah.plugins.echo',))})
         return h
 
     def test_no_corresponding_command(self, hipchat):
@@ -222,51 +219,45 @@ class TestSessionStart(object):
 
     def test_timeout(self, hipchat):
         with patch.object(hipchat.client, 'send_presence', return_value=None):
-
             with patch.object(
                     hipchat.client,
                     'get_roster',
                     side_effect=self.throw_iq_timeout) as _mock_get_roster:
-
                 with pytest.raises(SarahHipChatException) as e:
                     hipchat.session_start(None)
 
                 assert _mock_get_roster.call_count == 1
                 assert e.value.args[0] == (
-                        'Timeout occured while getting roster. '
-                        'Error type: cancel. '
-                        'Condition: remote-server-timeout.')
+                    'Timeout occurred while getting roster. '
+                    'Error type: cancel. '
+                    'Condition: remote-server-timeout.')
 
     def test_unknown_error(self, hipchat):
         with patch.object(hipchat.client, 'send_presence', return_value=None):
-
             with patch.object(
                     hipchat.client,
                     'get_roster',
                     side_effect=self.throw_exception) as _mock_get_roster:
-
                 with pytest.raises(SarahHipChatException) as e:
                     hipchat.session_start(None)
 
                 assert _mock_get_roster.call_count == 1
                 assert e.value.args[0] == (
-                        'Unknown error occured: spam.ham.egg.')
+                    'Unknown error occurred: spam.ham.egg.')
 
     def test_iq_error(self, hipchat):
         with patch.object(hipchat.client, 'send_presence', return_value=None):
-
             with patch.object(
                     hipchat.client,
                     'get_roster',
                     side_effect=self.throw_iq_error) as _mock_get_roster:
-
                 with pytest.raises(SarahHipChatException) as e:
                     hipchat.session_start(None)
 
                 assert _mock_get_roster.call_count == 1
                 assert e.value.args[0] == (
-                        'IQError while getting roster. '
-                        'Error type: spam. Condition: ham. Content: egg.')
+                    'IQError while getting roster. '
+                    'Error type: spam. Condition: ham. Content: egg.')
 
 
 class TestJoinRooms(object):
@@ -280,14 +271,13 @@ class TestJoinRooms(object):
         with patch.object(h.client.plugin['xep_0045'].xmpp,
                           'send',
                           return_value=None) as _mock_send:
-
             h.join_rooms(None)
 
             assert _mock_send.call_count == 1
             assert h.client.plugin['xep_0045'].rooms == {
-                    '123_homer@localhost': {}}
+                '123_homer@localhost': {}}
             assert h.client.plugin['xep_0045'].ourNicks == {
-                    '123_homer@localhost': h.config['nick']}
+                '123_homer@localhost': h.config['nick']}
 
     def test_no_setting(self):
         h = HipChat({'nick': 'Sarah',
@@ -298,7 +288,6 @@ class TestJoinRooms(object):
         with patch.object(h.client.plugin['xep_0045'].xmpp,
                           'send',
                           return_value=None) as _mock_send:
-
             h.join_rooms(None)
 
             assert _mock_send.call_count == 0
@@ -315,7 +304,7 @@ class TestSchedule(object):
                      'password': 'password',
                      'plugins': (
                          ('sarah.plugins.bmw_quotes', {
-                             'rooms': ('123_homer@localhost', ),
+                             'rooms': ('123_homer@localhost',),
                              'interval': 5}))})
         return h
 
@@ -325,13 +314,13 @@ class TestSchedule(object):
         h = HipChat({'nick': 'Sarah',
                      'jid': 'test@localhost',
                      'password': 'password',
-                     'plugins': (('sarah.plugins.bmw_quotes', ), )})
+                     'plugins': (('sarah.plugins.bmw_quotes',),)})
         h.add_schedule_jobs(h.schedules)
 
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
-                'Missing configuration for schedule job. '
-                'sarah.plugins.bmw_quotes. Skipping.')
+            'Missing configuration for schedule job. '
+            'sarah.plugins.bmw_quotes. Skipping.')
 
     def test_missing_rooms_config(self):
         logging.warning = MagicMock()
@@ -339,13 +328,13 @@ class TestSchedule(object):
         h = HipChat({'nick': 'Sarah',
                      'jid': 'test@localhost',
                      'password': 'password',
-                     'plugins': (('sarah.plugins.bmw_quotes', {}), )})
+                     'plugins': (('sarah.plugins.bmw_quotes', {}),)})
         h.add_schedule_jobs(h.schedules)
 
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
-                'Missing rooms configuration for schedule job. '
-                'sarah.plugins.bmw_quotes. Skipping.')
+            'Missing rooms configuration for schedule job. '
+            'sarah.plugins.bmw_quotes. Skipping.')
 
     def test_add_schedule_job(self):
         hipchat = HipChat({
@@ -353,7 +342,7 @@ class TestSchedule(object):
             'jid': 'test@localhost',
             'password': 'password',
             'plugins': (('sarah.plugins.bmw_quotes',
-                         {'rooms': ('123_homer@localhost', )}), )})
+                         {'rooms': ('123_homer@localhost',)}),)})
         hipchat.add_schedule_jobs(hipchat.schedules)
 
         jobs = hipchat.scheduler.get_jobs()

@@ -8,7 +8,6 @@ from requests.compat import json
 
 
 class Slack(object):
-
     def __init__(self, config):
         self.config = config
         self.setup_client()
@@ -32,7 +31,7 @@ class Slack(object):
         if 'ok' in decoded_event and 'reply_to' in decoded_event:
             # https://api.slack.com/rtm#sending_messages
             # Replies to messages sent by clients will always contain two
-            # properties: a boolean ok indicating whether they succeeeded and
+            # properties: a boolean ok indicating whether they succeeded and
             # an integer reply_to indicating which message they are in response
             # to.
             if decoded_event['ok'] is False:
@@ -46,8 +45,8 @@ class Slack(object):
         # TODO organize
         type_map = {
             'hello': {'method': self.handle_hello,
-                      'description': 'The client has succesfully connected to '
-                                     'the server'},
+                      'description': 'The client has successfully connected '
+                                     'to the server'},
             'message': {'method': self.handle_message,
                         'description': 'A message was sent to a channel'},
             'user_typing': {'description': 'A channel member is typing a '
@@ -109,11 +108,10 @@ class Slack(object):
                 ', '.join(missing_params),
                 kwargs))
 
-        params = {}
-        params['channel'] = kwargs['channel']
-        params['text'] = kwargs['text']
-        params['type'] = kwargs.get('type', 'message')
-        params['id'] = self.next_message_id()
+        params = {'channel': kwargs['channel'],
+                  'text': kwargs['text'],
+                  'type': kwargs.get('type', 'message'),
+                  'id': self.next_message_id()}
         self.ws.send(json.dumps(params))
 
     def next_message_id(self):
@@ -132,13 +130,13 @@ class SlackClient(object):
     def generate_endpoint(self, method):
         # https://api.slack.com/methods
         return self.base_url + method if self.base_url.endswith('/') else \
-               self.base_url + '/' + method
+            self.base_url + '/' + method
 
     def get(self, method):
         return self.request('GET', method)
 
     def post(self, method, params=None, data=None):
-        return self.request('POST', method, params)
+        return self.request('POST', method, params, data)
 
     def request(self, http_method, method, params=None, data=None):
         http_method = http_method.upper()

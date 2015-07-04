@@ -76,20 +76,20 @@ class HipChat(object):
             self.client.get_roster()
         except IqTimeout as e:
             raise SarahHipChatException(
-                    'Timeout occured while getting roster. '
-                    'Error type: %s. Condition: %s.' % (
-                        e.etype, e.condition))
+                'Timeout occurred while getting roster. '
+                'Error type: %s. Condition: %s.' % (
+                    e.etype, e.condition))
         except IqError as e:
             # ret['type'] == 'error'
             raise SarahHipChatException(
-                    'IQError while getting roster. '
-                    'Error type: %s. Condition: %s. Content: %s.' % (
-                        e.etype, e.condition, e.text))
+                'IQError while getting roster. '
+                'Error type: %s. Condition: %s. Content: %s.' % (
+                    e.etype, e.condition, e.text))
         except Exception as e:
-            raise SarahHipChatException('Unknown error occured: %s.' % e)
+            raise SarahHipChatException('Unknown error occurred: %s.' % e)
 
     def join_rooms(self, event):
-        # You MUST explicitely join rooms to receive message via XMPP interface
+        # You MUST explicitly join rooms to receive message via XMPP interface
         for room in self.config.get('rooms', []):
             self.client.plugin['xep_0045'].joinMUC(room,
                                                    self.config.get('nick', ''),
@@ -131,8 +131,6 @@ class HipChat(object):
             msg.reply(ret).send()
         elif isinstance(ret, numbers.Integral):
             msg.reply(str(ret)).send()
-#        elif isinstance(ret, dict):
-#            pass
         else:
             logging.error('Malformed returning value. '
                           'Command: %s. Value: %s.' %
@@ -162,6 +160,7 @@ class HipChat(object):
         def wrapper(func):
             def wrapped_function(*args, **kwargs):
                 return func(*args, **kwargs)
+
             if name in [command_set[0] for command_set in cls.__commands]:
                 logging.info("Skip duplicate command. "
                              "module: %s. command: %s." %
@@ -169,6 +168,7 @@ class HipChat(object):
             else:
                 cls.add_command(name, wrapped_function, func.__module__)
                 return wrapped_function
+
         return wrapper
 
     @classmethod
@@ -180,9 +180,11 @@ class HipChat(object):
         def wrapper(func):
             def wrapped_function(*args, **kwargs):
                 return func(*args, **kwargs)
+
             cls.__schedules.append((name,
                                     wrapped_function,
                                     func.__module__))
+
         return wrapper
 
     @property
@@ -197,15 +199,15 @@ class HipChat(object):
 
             if len(plugin_info) < 2:
                 logging.warning(
-                        'Missing configuration for schedule job. %s. '
-                        'Skipping.' % job[2])
+                    'Missing configuration for schedule job. %s. '
+                    'Skipping.' % job[2])
                 continue
 
             plugin_config = plugin_info[1]
             if 'rooms' not in plugin_config:
                 logging.warning(
-                        'Missing rooms configuration for schedule job. %s. '
-                        'Skipping.' % job[2])
+                    'Missing rooms configuration for schedule job. %s. '
+                    'Skipping.' % job[2])
                 continue
 
             def job_func():
@@ -216,13 +218,13 @@ class HipChat(object):
                         mbody=ret,
                         mtype=plugin_config.get('message_type', 'groupchat'))
 
-            id = '%s.%s' % (job[2], job[0])
+            job_id = '%s.%s' % (job[2], job[0])
             logging.info("Add schedule %s" % id)
             self.scheduler.add_job(
-                    job_func,
-                    'interval',
-                    id=id,
-                    minutes=plugin_config.get('interval', 5))
+                job_func,
+                'interval',
+                id=job_id,
+                minutes=plugin_config.get('interval', 5))
 
     def stop(self):
         logging.info('STOP SCHEDULER')

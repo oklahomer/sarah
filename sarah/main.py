@@ -9,9 +9,9 @@ from sarah.slack import Slack
 
 
 class Sarah(object):
-    def __init__(self, **kwargs):
+    def __init__(self, config_paths=[]):
 
-        self.config = self.load_config(kwargs.get('config_paths', []))
+        self.config = self.load_config(config_paths)
 
     def start(self):
         if 'hipchat' in self.config:
