@@ -5,6 +5,7 @@ import os
 import yaml
 from threading import Thread
 from sarah.hipchat import HipChat
+from sarah.slack import Slack
 
 
 class Sarah(object):
@@ -19,10 +20,11 @@ class Sarah(object):
             hipchat_thread = Thread(target=hipchat.run)
             hipchat_thread.start()
 
-#        if 'irc' in self.config:
-#            logging.info('Start IRC integration')
-#            irc = IRC(**self.config.get('irc', {}))
-#            irc.start()
+        if 'slack' in self.config:
+            logging.info('Start Slack integration')
+            slack = Slack(self.config['slack'])
+            slack_thread = Thread(target=slack.run)
+            slack_thread.start()
 
     @staticmethod
     def load_config(paths):
