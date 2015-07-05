@@ -2,6 +2,7 @@
 # https://api.slack.com/rtm
 
 import logging
+from typing import Optional, Union, List, Tuple, Callable, Dict
 import websocket
 import requests
 from requests.compat import json
@@ -9,16 +10,21 @@ from sarah.bot_base import BotBase
 
 
 class Slack(BotBase):
-    def __init__(self, config):
-        super().__init__(config)
-        self.setup_client()
+    def __init__(self,
+                 token: str='',
+                 plugins: Optional[Union[List, Tuple]]=None) -> None:
+        if not plugins:
+            plugins = []
+
+        super().__init__(plugins=plugins)
+
+        self.setup_client(token=token)
         self.message_id = 0
-        self.load_plugins(self.config.get('plugins', []))
 
-    def setup_client(self):
-        self.client = SlackClient(token=self.config.get('token', ''))
+    def setup_client(self, token: str) -> None:
+        self.client = SlackClient(token=token)
 
-    def run(self):
+    def run(self) -> None:
         response = self.client.get('rtm.start')
         self.ws = websocket.WebSocketApp(response['url'],
                                          on_message=self.message,
@@ -27,11 +33,15 @@ class Slack(BotBase):
                                          on_close=self.on_close)
         self.ws.run_forever()
 
-    def add_schedule_job(self, name, func, module_name, plugin_config):
+    def add_schedule_job(self,
+                         name: str,
+                         func: Callable,
+                         module_name: str,
+                         plugin_config: dict) -> None:
         # TODO
         raise NotImplementedError('Hold your horses.')
 
-    def message(self, ws, event):
+    def message(self, ws, event: str) -> None:
         decoded_event = json.loads(event)
 
         if 'ok' in decoded_event and 'reply_to' in decoded_event:
@@ -81,10 +91,10 @@ class Slack(BotBase):
             type_map[decoded_event['type']]['method'](decoded_event)
             return
 
-    def handle_hello(self, content):
+    def handle_hello(self, content: Dict) -> None:
         logging.info('Successfully connected to the server.')
 
-    def handle_message(self, content):
+    def handle_message(self, content: Dict) -> None:
         required_props = ('type', 'channel', 'user', 'text', 'ts')
         missing_props = [p for p in required_props if p not in content]
 
@@ -96,59 +106,62 @@ class Slack(BotBase):
 
         # TODO Check command and return results
         # Just returning the exact same text for now.
-        self.send_message(channel=content['channel'], text=content['text'])
+        self.send_message(content['channel'], content['text'])
 
-    def on_error(self, ws, error):
+    def on_error(self, ws, error) -> None:
         logging.error(error)
 
-    def on_open(self, ws):
+    def on_open(self, ws) -> None:
         logging.info('connected')
 
-    def on_close(self, ws):
+    def on_close(self, ws) -> None:
         logging.info('closed')
 
-    def send_message(self, **kwargs):
-        missing_params = [p for p in ('channel', 'text') if p not in kwargs]
-        if missing_params:
-            logging.error('Missing parameters: %s. %s' % (
-                ', '.join(missing_params),
-                kwargs))
-
-        params = {'channel': kwargs['channel'],
-                  'text': kwargs['text'],
-                  'type': kwargs.get('type', 'message'),
+    def send_message(self,
+                     channel: str,
+                     text: str,
+                     message_type: Optional[str]='message') -> None:
+        params = {'channel': channel,
+                  'text': text,
+                  'type': message_type,
                   'id': self.next_message_id()}
         self.ws.send(json.dumps(params))
 
-    def next_message_id(self):
+    def next_message_id(self) -> int:
         # https://api.slack.com/rtm#sending_messages
         # Every event should have a unique (for that connection) positive
         # integer ID. All replies to that message will include this ID.
         self.message_id += 1
         return self.message_id
 
-    def stop():
+    def stop(self) -> None:
         # TODO
         raise NotImplementedError('hold your horses')
 
 
 class SlackClient(object):
-    def __init__(self, **kwargs):
-        self.base_url = kwargs.get('base_url', 'https://slack.com/api/')
-        self.token = kwargs.get('token', None)
+    def __init__(self,
+                 token: str,
+                 base_url: Optional[str]='https://slack.com/api/') -> None:
+        self.base_url = base_url
+        self.token = token
 
-    def generate_endpoint(self, method):
+    def generate_endpoint(self, method: str) -> str:
         # https://api.slack.com/methods
         return self.base_url + method if self.base_url.endswith('/') else \
             self.base_url + '/' + method
 
-    def get(self, method):
+    def get(self, method) -> Dict:
         return self.request('GET', method)
 
-    def post(self, method, params=None, data=None):
+    def post(self, method, params=None, data=None) -> Dict:
         return self.request('POST', method, params, data)
 
-    def request(self, http_method, method, params=None, data=None):
+    def request(self,
+                http_method: str,
+                method: str,
+                params: Optional[Dict]=None,
+                data: Optional[Dict]=None) -> Dict:
         http_method = http_method.upper()
         endpoint = self.generate_endpoint(method)
 

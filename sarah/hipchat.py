@@ -1,54 +1,71 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import numbers
 import re
-from sleekxmpp import ClientXMPP
+from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
-from sarah.bot_base import BotBase
+from typing import Dict, List, Optional, Tuple, Union
+from sarah.bot_base import BotBase, Command
 
 
 class HipChat(BotBase):
-    def __init__(self, config):
-        super().__init__(config)
-        self.client = self.setup_xmpp_client()
+    def __init__(self,
+                 plugins: Optional[Union[List, Tuple]]=None,
+                 jid: str='',
+                 password: str='',
+                 rooms: Optional[Union[List, Tuple]]=None,
+                 nick: str='',
+                 proxy: Optional[Dict]=None) -> None:
+        if not plugins:
+            plugins = []
+        if not rooms:
+            rooms = []
 
-    def add_schedule_job(self, name, func, module_name, plugin_config):
-        if 'rooms' not in plugin_config:
+        super().__init__(plugins=plugins)
+
+        self.rooms = rooms
+        self.nick = nick
+        self.client = self.setup_xmpp_client(jid, password, proxy)
+
+    def add_schedule_job(self, job: Command) -> None:
+        if 'rooms' not in job.config:
             logging.warning(
                 'Missing rooms configuration for schedule job. %s. '
-                'Skipping.' % module_name)
+                'Skipping.' % job.module_name)
             return
 
-        def job_func():
-            ret = func(plugin_config)
-            for room in plugin_config.get('rooms', []):
+        def job_function():
+            ret = job.function(job.config)
+            for room in job.config['rooms']:
                 self.client.send_message(
                     mto=room,
                     mbody=ret,
-                    mtype=plugin_config.get('message_type', 'groupchat'))
+                    mtype=job.config.get('message_type', 'groupchat'))
 
-        job_id = '%s.%s' % (module_name, name)
+        job_id = '%s.%s' % (job.module_name, job.name)
         logging.info("Add schedule %s" % id)
         self.scheduler.add_job(
-            job_func,
+            job_function,
             'interval',
             id=job_id,
-            minutes=plugin_config.get('interval', 5))
+            minutes=job.config.get('interval', 5))
 
-    def run(self):
+    def run(self) -> None:
         if not self.client.connect():
             raise SarahHipChatException('Couldn\'t connect to server.')
         self.scheduler.start()
         self.client.process(block=True)
 
-    def setup_xmpp_client(self):
-        client = ClientXMPP(self.config['jid'], self.config['password'])
+    def setup_xmpp_client(self,
+                          jid: str,
+                          password: str,
+                          proxy: Optional[Dict]=None) -> ClientXMPP:
+        client = ClientXMPP(jid, password)
 
-        if 'proxy' in self.config:
+        if proxy:
             client.use_proxy = True
             for key in ('host', 'port', 'username', 'password'):
-                client.proxy_config[key] = self.config['proxy'].get(key, None)
+                client.proxy_config[key] = proxy.get(key, None)
 
         # TODO check later
         # client.add_event_handler('ssl_invalid_cert', lambda cert: True)
@@ -61,7 +78,7 @@ class HipChat(BotBase):
 
         return client
 
-    def session_start(self, event):
+    def session_start(self, event: Dict) -> None:
         self.client.send_presence()
 
         # http://sleekxmpp.readthedocs.org/en/latest/getting_started/echobot.html
@@ -87,15 +104,15 @@ class HipChat(BotBase):
         except Exception as e:
             raise SarahHipChatException('Unknown error occurred: %s.' % e)
 
-    def join_rooms(self, event):
+    def join_rooms(self, event: Dict) -> None:
         # You MUST explicitly join rooms to receive message via XMPP interface
-        for room in self.config.get('rooms', []):
+        for room in self.rooms:
             self.client.plugin['xep_0045'].joinMUC(room,
-                                                   self.config.get('nick', ''),
+                                                   self.nick,
                                                    maxhistory=None,
                                                    wait=True)
 
-    def message(self, msg):
+    def message(self, msg: Message) -> None:
         if msg['delay']['stamp']:
             # Avoid answering to all past messages when joining the room.
             # xep_0203 plugin required.
@@ -121,21 +138,21 @@ class HipChat(BotBase):
         if command is None:
             return
 
-        text = re.sub(r'{0}\s+'.format(command['name']), '', msg['body'])
-        ret = command['function']({'original_text': msg['body'],
+        text = re.sub(r'{0}\s+'.format(command.name), '', msg['body'])
+        try:
+            ret = command.execute({'original_text': msg['body'],
                                    'text': text,
-                                   'from': msg['from']},
-                                  command['config'])
-        if isinstance(ret, str):
-            msg.reply(ret).send()
-        elif isinstance(ret, numbers.Integral):
-            msg.reply(str(ret)).send()
+                                   'from': msg['from']})
+        except Exception as e:
+            msg.reply('Something went wrong with "%s"' % msg['body']).send()
+            logging.error('Error occurred. '
+                          'command: %s. input: %s. error: %s.' % (
+                              command.name, msg['body'], e
+                          ))
         else:
-            logging.error('Malformed returning value. '
-                          'Command: %s. Value: %s.' %
-                          (command[1], str(ret)))
+            msg.reply(ret).send()
 
-    def stop(self):
+    def stop(self) -> None:
         logging.info('STOP SCHEDULER')
         if self.scheduler.running:
             self.scheduler.shutdown()

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import random
+from typing import Dict
 from sarah.hipchat import HipChat
 
 # http://www.imdb.com/title/tt0105958/quotes
@@ -29,10 +30,10 @@ quotes = (("Eric: So I said to myself, 'Kyle,'\n"
 
 
 @HipChat.command('.bmw')
-def quote(msg, config):
+def quote(msg, config: Dict) -> str:
     return random.choice(quotes)
 
 
 @HipChat.schedule('bmw_quotes')
-def scheduled_quote(config):
+def scheduled_quote(config: Dict) -> str:
     return random.choice(quotes)

@@ -23,23 +23,23 @@ class TestSimpleCounter(object):
         response = count({'original_text': '.count ham',
                           'text': 'ham',
                           'from': '123_homer@localhost/Oklahomer'}, {})
-        assert response == 1
+        assert response == str(1)
 
     def test_multiple_calls_with_same_word(self):
         first_response = count({'original_text': '.count ham',
                                 'text': 'ham',
                                 'from': '123_homer@localhost/Oklahomer'}, {})
-        assert first_response == 1
+        assert first_response == str(1)
 
         other_user_response = count({'original_text': '.count ham',
                                      'text': 'ham',
                                      'from': 'other@localhost/Oklahomer'}, {})
-        assert other_user_response == 1
+        assert other_user_response == str(1)
 
         second_response = count({'original_text': '.count ham',
                                  'text': 'ham',
                                  'from': '123_homer@localhost/Oklahomer'}, {})
-        assert second_response == 2
+        assert second_response == str(2)
 
         reset_count({'original_text': '.reset_count',
                      'text': '',
@@ -48,18 +48,18 @@ class TestSimpleCounter(object):
         third_response = count({'original_text': '.count ham',
                                 'text': 'ham',
                                 'from': '123_homer@localhost/Oklahomer'}, {})
-        assert third_response == 1
+        assert third_response == str(1)
 
     def test_multiple_calls_with_different_word(self):
         first_response = count({'original_text': '.count ham',
                                 'text': 'ham',
                                 'from': '123_homer@localhost/Oklahomer'}, {})
-        assert first_response == 1
+        assert first_response == str(1)
 
         second_response = count({'original_text': '.count spam',
                                  'text': 'spam',
                                  'from': '123_homer@localhost/Oklahomer'}, {})
-        assert second_response == 1
+        assert second_response == str(1)
 
 
 class TestBMWQuotes(object):
