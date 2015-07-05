@@ -3,9 +3,9 @@
 
 import logging
 from typing import Optional, Union, List, Tuple, Callable, Dict
-import websocket
 import requests
 from requests.compat import json
+from websocket import WebSocketApp
 from sarah.bot_base import BotBase
 
 
@@ -26,11 +26,11 @@ class Slack(BotBase):
 
     def run(self) -> None:
         response = self.client.get('rtm.start')
-        self.ws = websocket.WebSocketApp(response['url'],
-                                         on_message=self.message,
-                                         on_error=self.on_error,
-                                         on_open=self.on_open,
-                                         on_close=self.on_close)
+        self.ws = WebSocketApp(response['url'],
+                               on_message=self.message,
+                               on_error=self.on_error,
+                               on_open=self.on_open,
+                               on_close=self.on_close)
         self.ws.run_forever()
 
     def add_schedule_job(self,
@@ -41,7 +41,7 @@ class Slack(BotBase):
         # TODO
         raise NotImplementedError('Hold your horses.')
 
-    def message(self, ws, event: str) -> None:
+    def message(self, ws: WebSocketApp, event: str) -> None:
         decoded_event = json.loads(event)
 
         if 'ok' in decoded_event and 'reply_to' in decoded_event:
@@ -108,13 +108,13 @@ class Slack(BotBase):
         # Just returning the exact same text for now.
         self.send_message(content['channel'], content['text'])
 
-    def on_error(self, ws, error) -> None:
+    def on_error(self, ws: WebSocketApp, error) -> None:
         logging.error(error)
 
-    def on_open(self, ws) -> None:
+    def on_open(self, ws: WebSocketApp) -> None:
         logging.info('connected')
 
-    def on_close(self, ws) -> None:
+    def on_close(self, ws: WebSocketApp) -> None:
         logging.info('closed')
 
     def send_message(self,
