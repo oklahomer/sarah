@@ -2,11 +2,11 @@
 # https://api.slack.com/rtm
 
 import logging
-from typing import Optional, Union, List, Tuple, Callable, Dict
+from typing import Optional, Union, List, Tuple, Dict
 import requests
 from requests.compat import json
 from websocket import WebSocketApp
-from sarah.bot_base import BotBase
+from sarah.bot_base import BotBase, Command
 
 
 class Slack(BotBase):
@@ -33,11 +33,7 @@ class Slack(BotBase):
                                on_close=self.on_close)
         self.ws.run_forever()
 
-    def add_schedule_job(self,
-                         name: str,
-                         func: Callable,
-                         module_name: str,
-                         plugin_config: dict) -> None:
+    def add_schedule_job(self, command: Command) -> None:
         # TODO
         raise NotImplementedError('Hold your horses.')
 

@@ -45,22 +45,23 @@ class TestInit(object):
         assert isinstance(hipchat, HipChat) is True
         assert isinstance(hipchat.client, ClientXMPP) is True
 
-        assert hipchat.commands[0].name == '.count'
-        assert (
-            hipchat.commands[0].module_name == 'sarah.plugins.simple_counter')
-        assert isinstance(hipchat.commands[0].function,
-                          types.FunctionType) is True
+        assert list(hipchat.commands.keys()) == ['.count',
+                                                 '.reset_count',
+                                                 '.echo']
 
-        assert hipchat.commands[1].name == '.reset_count'
-        assert (
-            hipchat.commands[1].module_name == 'sarah.plugins.simple_counter')
-        assert isinstance(hipchat.commands[1].function,
-                          types.FunctionType) is True
+        commands = list(hipchat.commands.values())
 
-        assert hipchat.commands[2].name == '.echo'
-        assert (hipchat.commands[2].module_name == 'sarah.plugins.echo')
-        assert isinstance(hipchat.commands[2].function,
-                          types.FunctionType) is True
+        assert commands[0].name == '.count'
+        assert commands[0].module_name == 'sarah.plugins.simple_counter'
+        assert isinstance(commands[0].function, types.FunctionType) is True
+
+        assert commands[1].name == '.reset_count'
+        assert commands[1].module_name == 'sarah.plugins.simple_counter'
+        assert isinstance(commands[1].function, types.FunctionType) is True
+
+        assert commands[2].name == '.echo'
+        assert commands[2].module_name == 'sarah.plugins.echo'
+        assert isinstance(commands[2].function, types.FunctionType) is True
 
         assert hipchat.client.use_proxy is True
         assert hipchat.client.proxy_config == {'host': 'localhost',

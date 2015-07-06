@@ -27,28 +27,28 @@ class HipChat(BotBase):
         self.nick = nick
         self.client = self.setup_xmpp_client(jid, password, proxy)
 
-    def add_schedule_job(self, job: Command) -> None:
-        if 'rooms' not in job.config:
+    def add_schedule_job(self, command: Command) -> None:
+        if 'rooms' not in command.config:
             logging.warning(
                 'Missing rooms configuration for schedule job. %s. '
-                'Skipping.' % job.module_name)
+                'Skipping.' % command.module_name)
             return
 
         def job_function():
-            ret = job.function(job.config)
-            for room in job.config['rooms']:
+            ret = command.execute()
+            for room in command.config['rooms']:
                 self.client.send_message(
                     mto=room,
                     mbody=ret,
-                    mtype=job.config.get('message_type', 'groupchat'))
+                    mtype=command.config.get('message_type', 'groupchat'))
 
-        job_id = '%s.%s' % (job.module_name, job.name)
+        job_id = '%s.%s' % (command.module_name, command.name)
         logging.info("Add schedule %s" % id)
         self.scheduler.add_job(
             job_function,
             'interval',
             id=job_id,
-            minutes=job.config.get('interval', 5))
+            minutes=command.config.get('interval', 5))
 
     def run(self) -> None:
         if not self.client.connect():

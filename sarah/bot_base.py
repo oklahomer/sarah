@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import abc
+from collections import OrderedDict
 import imp
 import importlib
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
-from typing import Callable, List, Tuple, Union, Dict, Optional
+from typing import Callable, List, Tuple, Union, Optional
 
 
 class Command(object):
@@ -21,8 +22,10 @@ class Command(object):
         self.module_name = module_name
         self.config = config
 
-    def execute(self, msg: Dict) -> str:
-        return self.function(msg, self.config)
+    def execute(self, *args) -> str:
+        args = list(args)
+        args.append(self.config)
+        return self.function(*args)
 
     def set_config(self, config: dict) -> None:
         self.config = config
@@ -36,8 +39,8 @@ class BotBase(object, metaclass=abc.ABCMeta):
         self.plugins = plugins
 
         # Reset to ease tests in one file
-        self.__commands[self.__class__.__name__] = []
-        self.__schedules[self.__class__.__name__] = []
+        self.__commands[self.__class__.__name__] = OrderedDict()
+        self.__schedules[self.__class__.__name__] = OrderedDict()
 
         self.scheduler = BackgroundScheduler()
         self.load_plugins(self.plugins)
@@ -52,10 +55,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def add_schedule_job(self, name: str,
-                         func: Callable,
-                         module_name: str,
-                         plugin_config: dict) -> None:
+    def add_schedule_job(self, command: Command) -> None:
         pass
 
     def load_plugins(self, plugins: Union[List, Tuple]) -> None:
@@ -76,17 +76,17 @@ class BotBase(object, metaclass=abc.ABCMeta):
 
     def find_command(self, text: str) -> Optional[Command]:
         # Find the first registered command that matches the input text
-        command = next(
-            (c for c in self.commands if text.startswith(c.name)),
-            None)
+        command_name = next(
+            (k for k in self.commands.keys() if text.startswith(k)), None)
 
-        if command is None:
+        if command_name is None:
             return None
 
         # Since command function is class method, when it is called with
         # @command annotation from outside, self.plugins or other object
         # properties are not accessible. So add plugin configuration at here.
         # TODO look for better implementation.
+        command = self.commands[command_name]
         plugin_info = next(
             (i for i in self.plugins if i[0] == command.module_name), ())
         if len(plugin_info) > 1:
@@ -95,47 +95,42 @@ class BotBase(object, metaclass=abc.ABCMeta):
         return command
 
     @property
-    def schedules(self) -> List[Command]:
-        return self.__schedules.get(self.__class__.__name__, [])
+    def schedules(self) -> OrderedDict:
+        return self.__schedules.get(self.__class__.__name__, OrderedDict())
 
     @classmethod
     def schedule(cls, name: str) -> Callable:
         if cls.__name__ not in cls.__schedules:
-            cls.__schedules[cls.__name__] = []
+            cls.__schedules[cls.__name__] = OrderedDict()
 
         def wrapper(func):
             def wrapped_function(*args, **kwargs):
                 return func(*args, **kwargs)
 
-            if name in [command.name for command in
-                        cls.__schedules[cls.__name__]]:
-                logging.info("Skip duplicate schedule. "
-                             "module: %s. command: %s." %
-                             (func.__module__, name))
-            else:
-                cls.__schedules[cls.__name__].append(
-                    Command(name, wrapped_function, func.__module__))
+            # If command name duplicates, update with the later one.
+            # The order stays.
+            cls.__schedules[cls.__name__].update(
+                {name: Command(name, wrapped_function, func.__module__)})
 
         return wrapper
 
-    def add_schedule_jobs(self, jobs: List[Command]) -> None:
-        for job in jobs:
+    def add_schedule_jobs(self, commands: OrderedDict) -> None:
+        for command in list(commands.values()):
             plugin_info = next(
-                (i for i in self.plugins if i[0] == job.module_name),
-                ())
+                (i for i in self.plugins if i[0] == command.module_name), ())
 
             if len(plugin_info) < 2:
                 logging.warning(
                     'Missing configuration for schedule job. %s. '
-                    'Skipping.' % job.module_name)
+                    'Skipping.' % command.module_name)
                 continue
 
-            job.set_config(plugin_info[1])
-            self.add_schedule_job(job)
+            command.set_config(plugin_info[1])
+            self.add_schedule_job(command)
 
     @property
-    def commands(self) -> List:
-        return self.__commands.get(self.__class__.__name__, [])
+    def commands(self) -> OrderedDict:
+        return self.__commands.get(self.__class__.__name__, OrderedDict())
 
     @classmethod
     def command(cls, name) -> Callable:
@@ -143,19 +138,17 @@ class BotBase(object, metaclass=abc.ABCMeta):
             def wrapped_function(*args, **kwargs):
                 return func(*args, **kwargs)
 
-            registered_commands = cls.__commands.get(cls.__name__, [])
-            if name in [command.name for command in registered_commands]:
-                logging.info("Skip duplicate command. "
-                             "module: %s. command: %s." %
-                             (func.__module__, name))
-            else:
-                cls.add_command(name, wrapped_function, func.__module__)
-                return wrapped_function
+            cls.add_command(name, wrapped_function, func.__module__)
+            return wrapped_function
 
         return wrapper
 
     @classmethod
     def add_command(cls, name: str, func: Callable, module_name: str) -> None:
         if cls.__name__ not in cls.__commands:
-            cls.__commands[cls.__name__] = []
-        cls.__commands[cls.__name__].append(Command(name, func, module_name))
+            cls.__commands[cls.__name__] = OrderedDict()
+
+        # If command name duplicates, update with the later one.
+        # The order stays.
+        cls.__commands[cls.__name__].update(
+            {name: Command(name, func, module_name)})
