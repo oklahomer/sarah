@@ -149,7 +149,8 @@ class TestMessage(object):
                     jid='test@localhost',
                     password='password',
                     plugins=(('sarah.plugins.simple_counter', {}),
-                             ('sarah.plugins.echo',)))
+                             ('sarah.plugins.echo',)),
+                    max_workers=4)
         Thread(target=h.run)
         request.addfinalizer(h.stop)
 

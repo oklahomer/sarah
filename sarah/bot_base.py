@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import abc
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 import imp
 import importlib
 import logging
@@ -35,8 +36,12 @@ class BotBase(object, metaclass=abc.ABCMeta):
     __commands = {}
     __schedules = {}
 
-    def __init__(self, plugins: Union[List, Tuple]) -> None:
+    def __init__(self,
+                 plugins: Union[List, Tuple],
+                 max_workers: Optional[int]=None) -> None:
         self.plugins = plugins
+        self.worker = ThreadPoolExecutor(max_workers=max_workers) \
+            if max_workers else None
 
         # Reset to ease tests in one file
         self.__commands[self.__class__.__name__] = OrderedDict()
@@ -51,12 +56,19 @@ class BotBase(object, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def stop(self) -> None:
-        pass
-
-    @abc.abstractmethod
     def add_schedule_job(self, command: Command) -> None:
         pass
+
+    def stop(self) -> None:
+        if self.worker:
+            self.worker.shutdown(wait=False)
+
+    def add_queue(self, callback_function):
+        if self.worker:
+            return lambda *args, **kwargs: self.worker.submit(
+                callback_function, *args, **kwargs)
+        else:
+            return lambda *args, **kwargs: callback_function(*args, **kwargs)
 
     def load_plugins(self, plugins: Union[List, Tuple]) -> None:
         for module_config in plugins:

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import logging
 import re
 from sleekxmpp import ClientXMPP, Message
@@ -15,13 +14,14 @@ class HipChat(BotBase):
                  password: str='',
                  rooms: Optional[Union[List, Tuple]]=None,
                  nick: str='',
-                 proxy: Optional[Dict]=None) -> None:
+                 proxy: Optional[Dict]=None,
+                 max_workers: Optional[int]=None) -> None:
         if not plugins:
             plugins = []
         if not rooms:
             rooms = []
 
-        super().__init__(plugins=plugins)
+        super().__init__(plugins=plugins, max_workers=max_workers)
 
         self.rooms = rooms
         self.nick = nick
@@ -70,9 +70,10 @@ class HipChat(BotBase):
         # TODO check later
         # client.add_event_handler('ssl_invalid_cert', lambda cert: True)
 
-        client.add_event_handler('roster_update', self.join_rooms)
         client.add_event_handler('session_start', self.session_start)
-        client.add_event_handler('message', self.message)
+        client.add_event_handler('roster_update',
+                                 self.add_queue(self.join_rooms))
+        client.add_event_handler('message', self.add_queue(self.message))
         client.register_plugin('xep_0045')
         client.register_plugin('xep_0203')
 
@@ -153,6 +154,7 @@ class HipChat(BotBase):
             msg.reply(ret).send()
 
     def stop(self) -> None:
+        super().stop()
         logging.info('STOP SCHEDULER')
         if self.scheduler.running:
             self.scheduler.shutdown()

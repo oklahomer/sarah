@@ -12,11 +12,12 @@ from sarah.bot_base import BotBase, Command
 class Slack(BotBase):
     def __init__(self,
                  token: str='',
-                 plugins: Optional[Union[List, Tuple]]=None) -> None:
+                 plugins: Optional[Union[List, Tuple]]=None,
+                 max_workers: Optional[int]=None) -> None:
         if not plugins:
             plugins = []
 
-        super().__init__(plugins=plugins)
+        super().__init__(plugins=plugins, max_workers=max_workers)
 
         self.setup_client(token=token)
         self.message_id = 0
@@ -27,7 +28,7 @@ class Slack(BotBase):
     def run(self) -> None:
         response = self.client.get('rtm.start')
         self.ws = WebSocketApp(response['url'],
-                               on_message=self.message,
+                               on_message=self.add_queue(self.message),
                                on_error=self.on_error,
                                on_open=self.on_open,
                                on_close=self.on_close)
