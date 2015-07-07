@@ -5,5 +5,5 @@ from sarah.hipchat import HipChat
 
 
 @HipChat.command('.echo')
-def echo(msg, config: Dict) -> str:
+def echo(msg: Dict, config: Dict) -> str:
     return msg['text']

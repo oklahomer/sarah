@@ -7,7 +7,7 @@ __stash = {}
 
 
 @HipChat.command('.count')
-def count(msg, config: Dict) -> str:
+def count(msg: Dict, config: Dict) -> str:
     if not msg['from'] in __stash:
         __stash[msg['from']] = {}
 
@@ -18,7 +18,7 @@ def count(msg, config: Dict) -> str:
 
 
 @HipChat.command('.reset_count')
-def reset_count(msg, config: Dict) -> str:
+def reset_count(msg: Dict, config: Dict) -> str:
     global __stash
     __stash = {}
     return 'restart counting'
