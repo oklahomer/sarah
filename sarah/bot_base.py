@@ -2,6 +2,7 @@
 import abc
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
+from functools import wraps
 import imp
 import importlib
 import logging
@@ -65,6 +66,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
 
     @classmethod
     def enqueue(cls, callback_function):
+        @wraps(callback_function)
         def wrapper(self, *args, **kwargs):
             if self.worker:
                 return self.worker.submit(callback_function,
@@ -122,6 +124,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
             cls.__schedules[cls.__name__] = OrderedDict()
 
         def wrapper(func):
+            @wraps(func)
             def wrapped_function(*args, **kwargs):
                 return func(*args, **kwargs)
 
@@ -153,6 +156,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
     @classmethod
     def command(cls, name) -> Callable:
         def wrapper(func):
+            @wraps(func)
             def wrapped_function(*args, **kwargs):
                 return func(*args, **kwargs)
 
