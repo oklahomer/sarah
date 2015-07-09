@@ -63,12 +63,18 @@ class BotBase(object, metaclass=abc.ABCMeta):
         if self.worker:
             self.worker.shutdown(wait=False)
 
-    def add_queue(self, callback_function):
-        if self.worker:
-            return lambda *args, **kwargs: self.worker.submit(
-                callback_function, *args, **kwargs)
-        else:
-            return lambda *args, **kwargs: callback_function(*args, **kwargs)
+    @classmethod
+    def enqueue(cls, callback_function):
+        def wrapper(self, *args, **kwargs):
+            if self.worker:
+                return self.worker.submit(callback_function,
+                                          self,
+                                          *args,
+                                          **kwargs)
+            else:
+                return callback_function(self, *args, **kwargs)
+
+        return wrapper
 
     def load_plugins(self, plugins: Union[List, Tuple]) -> None:
         for module_config in plugins:
@@ -164,3 +170,6 @@ class BotBase(object, metaclass=abc.ABCMeta):
         # The order stays.
         cls.__commands[cls.__name__].update(
             {name: Command(name, func, module_name)})
+
+
+enqueue = BotBase.enqueue

@@ -6,7 +6,7 @@ from typing import Optional, Union, List, Tuple, Dict
 import requests
 from requests.compat import json
 from websocket import WebSocketApp
-from sarah.bot_base import BotBase, Command
+from sarah.bot_base import BotBase, Command, enqueue
 
 
 class Slack(BotBase):
@@ -28,7 +28,7 @@ class Slack(BotBase):
     def run(self) -> None:
         response = self.client.get('rtm.start')
         self.ws = WebSocketApp(response['url'],
-                               on_message=self.add_queue(self.message),
+                               on_message=self.message,
                                on_error=self.on_error,
                                on_open=self.on_open,
                                on_close=self.on_close)
@@ -38,6 +38,7 @@ class Slack(BotBase):
         # TODO
         raise NotImplementedError('Hold your horses.')
 
+    @enqueue
     def message(self, ws: WebSocketApp, event: str) -> None:
         decoded_event = json.loads(event)
 

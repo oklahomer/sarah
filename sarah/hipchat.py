@@ -4,7 +4,7 @@ import re
 from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from typing import Dict, List, Optional, Tuple, Union
-from sarah.bot_base import BotBase, Command
+from sarah.bot_base import BotBase, Command, enqueue
 
 
 class HipChat(BotBase):
@@ -71,9 +71,8 @@ class HipChat(BotBase):
         # client.add_event_handler('ssl_invalid_cert', lambda cert: True)
 
         client.add_event_handler('session_start', self.session_start)
-        client.add_event_handler('roster_update',
-                                 self.add_queue(self.join_rooms))
-        client.add_event_handler('message', self.add_queue(self.message))
+        client.add_event_handler('roster_update', self.join_rooms)
+        client.add_event_handler('message', self.message)
         client.register_plugin('xep_0045')
         client.register_plugin('xep_0203')
 
@@ -105,6 +104,7 @@ class HipChat(BotBase):
         except Exception as e:
             raise SarahHipChatException('Unknown error occurred: %s.' % e)
 
+    @enqueue
     def join_rooms(self, event: Dict) -> None:
         # You MUST explicitly join rooms to receive message via XMPP interface
         for room in self.rooms:
@@ -113,6 +113,7 @@ class HipChat(BotBase):
                                                    maxhistory=None,
                                                    wait=True)
 
+    @enqueue
     def message(self, msg: Message) -> None:
         if msg['delay']['stamp']:
             # Avoid answering to all past messages when joining the room.
