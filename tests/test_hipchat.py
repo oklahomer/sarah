@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from time import sleep
 import pytest
 import logging
 from threading import Thread
@@ -151,8 +152,12 @@ class TestMessage(object):
                     plugins=(('sarah.plugins.simple_counter', {}),
                              ('sarah.plugins.echo',)),
                     max_workers=4)
-        Thread(target=h.run)
+        h.client.connect = lambda: True
+        h.client.process = lambda: True
         request.addfinalizer(h.stop)
+
+        t = Thread(target=h.run)
+        t.start()
 
         return h
 
@@ -172,6 +177,8 @@ class TestMessage(object):
         msg.reply = MagicMock()
 
         hipchat.message(msg)
+
+        sleep(.1)
         assert msg.reply.call_count == 1
         assert msg.reply.call_args == call('spam')
 
@@ -184,15 +191,18 @@ class TestMessage(object):
         msg.reply = MagicMock()
 
         hipchat.message(msg)
+        sleep(.1)
         assert msg.reply.call_count == 1
         assert msg.reply.call_args == call('1')
 
         hipchat.message(msg)
+        sleep(.1)
         assert msg.reply.call_count == 2
         assert msg.reply.call_args == call('2')
 
         msg['body'] = '.count egg'
         hipchat.message(msg)
+        sleep(.1)
         assert msg.reply.call_count == 3
         assert msg.reply.call_args == call('1')
 
