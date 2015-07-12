@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import concurrent
+from concurrent.futures import ALL_COMPLETED
+from time import sleep
 import pytest
 import logging
 from threading import Thread
@@ -151,10 +154,22 @@ class TestMessage(object):
                     plugins=(('sarah.plugins.simple_counter', {}),
                              ('sarah.plugins.echo',)),
                     max_workers=4)
-        Thread(target=h.run)
+        h.client.connect = lambda: True
+        h.client.process = lambda *args, **kwargs: True
         request.addfinalizer(h.stop)
 
+        t = Thread(target=h.run)
+        t.start()
+
         return h
+
+    def wait_future_finish(self, future):
+        sleep(.5)  # Why whould I need this line?? Check later.
+
+        ret = concurrent.futures.wait([future], 5, return_when=ALL_COMPLETED)
+        if len(ret.not_done) > 0:
+            logging.error("Jobs are not finished.")
+        assert future in ret.done
 
     def test_skip_message(self, hipchat):
         msg = Message(hipchat.client, stype='normal')
@@ -162,7 +177,7 @@ class TestMessage(object):
 
         msg.reply = MagicMock()
 
-        hipchat.message(msg)
+        self.wait_future_finish(hipchat.message(msg))
         assert msg.reply.call_count == 0
 
     def test_echo_message(self, hipchat):
@@ -171,7 +186,7 @@ class TestMessage(object):
 
         msg.reply = MagicMock()
 
-        hipchat.message(msg)
+        self.wait_future_finish(hipchat.message(msg))
         assert msg.reply.call_count == 1
         assert msg.reply.call_args == call('spam')
 
@@ -183,16 +198,16 @@ class TestMessage(object):
 
         msg.reply = MagicMock()
 
-        hipchat.message(msg)
+        self.wait_future_finish(hipchat.message(msg))
         assert msg.reply.call_count == 1
         assert msg.reply.call_args == call('1')
 
-        hipchat.message(msg)
+        self.wait_future_finish(hipchat.message(msg))
         assert msg.reply.call_count == 2
         assert msg.reply.call_args == call('2')
 
         msg['body'] = '.count egg'
-        hipchat.message(msg)
+        self.wait_future_finish(hipchat.message(msg))
         assert msg.reply.call_count == 3
         assert msg.reply.call_args == call('1')
 

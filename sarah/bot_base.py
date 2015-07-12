@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 import abc
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 from functools import wraps
 import imp
 import importlib
 import logging
+import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
 from typing import Callable, List, Tuple, Union, Optional
+from sarah.thread import ThreadExecuter
 
 
 class Command(object):
@@ -43,11 +45,13 @@ class BotBase(object, metaclass=abc.ABCMeta):
         self.plugins = plugins
         self.worker = ThreadPoolExecutor(max_workers=max_workers) \
             if max_workers else None
+        self.message_worker = ThreadExecuter()
 
         # Reset to ease tests in one file
         self.__commands[self.__class__.__name__] = OrderedDict()
         self.__schedules[self.__class__.__name__] = OrderedDict()
 
+        self.stop_event = threading.Event()
         self.scheduler = BackgroundScheduler()
         self.load_plugins(self.plugins)
         self.add_schedule_jobs(self.schedules)
@@ -61,11 +65,13 @@ class BotBase(object, metaclass=abc.ABCMeta):
         pass
 
     def stop(self) -> None:
+        self.stop_event.set()
+        self.message_worker.shutdown(wait=False)
         if self.worker:
             self.worker.shutdown(wait=False)
 
     @classmethod
-    def enqueue(cls, callback_function):
+    def concurrent(cls, callback_function):
         @wraps(callback_function)
         def wrapper(self, *args, **kwargs):
             if self.worker:
@@ -77,6 +83,9 @@ class BotBase(object, metaclass=abc.ABCMeta):
                 return callback_function(self, *args, **kwargs)
 
         return wrapper
+
+    def enqueue_sending_message(self, function, *args, **kwargs) -> Future:
+        return self.message_worker.submit(function, *args, **kwargs)
 
     def load_plugins(self, plugins: Union[List, Tuple]) -> None:
         for module_config in plugins:
@@ -176,4 +185,8 @@ class BotBase(object, metaclass=abc.ABCMeta):
             {name: Command(name, func, module_name)})
 
 
-enqueue = BotBase.enqueue
+class SarahException(Exception):
+    pass
+
+
+concurrent = BotBase.concurrent

@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # https://api.slack.com/rtm
+from concurrent.futures import Future
 
 import logging
 from typing import Optional, Union, List, Tuple, Dict
 import requests
 from requests.compat import json
 from websocket import WebSocketApp
-from sarah.bot_base import BotBase, Command, enqueue
+from sarah.bot_base import BotBase, Command, concurrent
 
 
 class Slack(BotBase):
@@ -38,7 +39,7 @@ class Slack(BotBase):
         # TODO
         raise NotImplementedError('Hold your horses.')
 
-    @enqueue
+    @concurrent
     def message(self, ws: WebSocketApp, event: str) -> None:
         decoded_event = json.loads(event)
 
@@ -92,7 +93,7 @@ class Slack(BotBase):
     def handle_hello(self, content: Dict) -> None:
         logging.info('Successfully connected to the server.')
 
-    def handle_message(self, content: Dict) -> None:
+    def handle_message(self, content: Dict) -> Optional[Future]:
         required_props = ('type', 'channel', 'user', 'text', 'ts')
         missing_props = [p for p in required_props if p not in content]
 
@@ -104,7 +105,10 @@ class Slack(BotBase):
 
         # TODO Check command and return results
         # Just returning the exact same text for now.
-        self.send_message(content['channel'], content['text'])
+        # self.send_message(content['channel'], content['text'])
+        return self.enqueue_sending_message(self.send_message,
+                                            content['channel'],
+                                            content['text'])
 
     def on_error(self, ws: WebSocketApp, error) -> None:
         logging.error(error)

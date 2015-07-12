@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
+from concurrent.futures import Future
 import logging
 import re
 from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from typing import Dict, List, Optional, Tuple, Union
-from sarah.bot_base import BotBase, Command, enqueue
+from sarah.bot_base import BotBase, Command, concurrent, SarahException
 
 
 class HipChat(BotBase):
@@ -37,10 +38,11 @@ class HipChat(BotBase):
         def job_function():
             ret = command.execute()
             for room in command.config['rooms']:
-                self.client.send_message(
-                    mto=room,
-                    mbody=ret,
-                    mtype=command.config.get('message_type', 'groupchat'))
+                self.enqueue_sending_message(self.client.send_message,
+                                             mto=room,
+                                             mbody=ret,
+                                             mtype=command.config.get(
+                                                 'message_type', 'groupchat'))
 
         job_id = '%s.%s' % (command.module_name, command.name)
         logging.info("Add schedule %s" % id)
@@ -104,7 +106,7 @@ class HipChat(BotBase):
         except Exception as e:
             raise SarahHipChatException('Unknown error occurred: %s.' % e)
 
-    @enqueue
+    @concurrent
     def join_rooms(self, event: Dict) -> None:
         # You MUST explicitly join rooms to receive message via XMPP interface
         for room in self.rooms:
@@ -113,8 +115,8 @@ class HipChat(BotBase):
                                                    maxhistory=None,
                                                    wait=True)
 
-    @enqueue
-    def message(self, msg: Message) -> None:
+    @concurrent
+    def message(self, msg: Message) -> Optional[Future]:
         if msg['delay']['stamp']:
             # Avoid answering to all past messages when joining the room.
             # xep_0203 plugin required.
@@ -146,20 +148,24 @@ class HipChat(BotBase):
                                    'text': text,
                                    'from': msg['from']})
         except Exception as e:
-            msg.reply('Something went wrong with "%s"' % msg['body']).send()
             logging.error('Error occurred. '
                           'command: %s. input: %s. error: %s.' % (
                               command.name, msg['body'], e
                           ))
+            return self.enqueue_sending_message(lambda: msg.reply(
+                'Something went wrong with "%s"' % msg['body']).send())
         else:
-            msg.reply(ret).send()
+            return self.enqueue_sending_message(lambda: msg.reply(ret).send())
 
     def stop(self) -> None:
         super().stop()
         logging.info('STOP SCHEDULER')
         if self.scheduler.running:
-            self.scheduler.shutdown()
-            logging.info('CANCELLED SCHEDULED WORK')
+            try:
+                self.scheduler.shutdown()
+                logging.info('CANCELLED SCHEDULED WORK')
+            except Exception as e:
+                logging.error(e)
 
         logging.info('STOP HIPCHAT INTEGRATION')
         if hasattr(self, 'client') and self.client is not None:
@@ -168,5 +174,5 @@ class HipChat(BotBase):
             logging.info('DISCONNECTED FROM HIPCHAT SERVER')
 
 
-class SarahHipChatException(Exception):
+class SarahHipChatException(SarahException):
     pass
