@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from concurrent.futures import Future
 import logging
 import re
 from sleekxmpp import ClientXMPP, Message
@@ -54,7 +55,6 @@ class HipChat(BotBase):
     def run(self) -> None:
         if not self.client.connect():
             raise SarahHipChatException('Couldn\'t connect to server.')
-        self.supervise_enqueued_message()
         self.scheduler.start()
         self.client.process(block=True)
 
@@ -116,7 +116,7 @@ class HipChat(BotBase):
                                                    wait=True)
 
     @concurrent
-    def message(self, msg: Message) -> None:
+    def message(self, msg: Message) -> Optional[Future]:
         if msg['delay']['stamp']:
             # Avoid answering to all past messages when joining the room.
             # xep_0203 plugin required.
@@ -148,14 +148,14 @@ class HipChat(BotBase):
                                    'text': text,
                                    'from': msg['from']})
         except Exception as e:
-            self.enqueue_sending_message(lambda: msg.reply(
-                'Something went wrong with "%s"' % msg['body']).send())
             logging.error('Error occurred. '
                           'command: %s. input: %s. error: %s.' % (
                               command.name, msg['body'], e
                           ))
+            return self.enqueue_sending_message(lambda: msg.reply(
+                'Something went wrong with "%s"' % msg['body']).send())
         else:
-            self.enqueue_sending_message(lambda: msg.reply(ret).send())
+            return self.enqueue_sending_message(lambda: msg.reply(ret).send())
 
     def stop(self) -> None:
         super().stop()

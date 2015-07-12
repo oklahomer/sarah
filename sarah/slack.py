@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # https://api.slack.com/rtm
+from concurrent.futures import Future
 
 import logging
 from typing import Optional, Union, List, Tuple, Dict
@@ -26,8 +27,6 @@ class Slack(BotBase):
         self.client = SlackClient(token=token)
 
     def run(self) -> None:
-        self.supervise_enqueued_message()
-
         response = self.client.get('rtm.start')
         self.ws = WebSocketApp(response['url'],
                                on_message=self.message,
@@ -94,7 +93,7 @@ class Slack(BotBase):
     def handle_hello(self, content: Dict) -> None:
         logging.info('Successfully connected to the server.')
 
-    def handle_message(self, content: Dict) -> None:
+    def handle_message(self, content: Dict) -> Optional[Future]:
         required_props = ('type', 'channel', 'user', 'text', 'ts')
         missing_props = [p for p in required_props if p not in content]
 
@@ -107,9 +106,9 @@ class Slack(BotBase):
         # TODO Check command and return results
         # Just returning the exact same text for now.
         # self.send_message(content['channel'], content['text'])
-        self.enqueue_sending_message(self.send_message,
-                                     content['channel'],
-                                     content['text'])
+        return self.enqueue_sending_message(self.send_message,
+                                            content['channel'],
+                                            content['text'])
 
     def on_error(self, ws: WebSocketApp, error) -> None:
         logging.error(error)

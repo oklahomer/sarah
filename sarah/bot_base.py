@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 import abc
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 from functools import wraps
 import imp
 import importlib
 import logging
-from queue import Queue, Empty
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
 from typing import Callable, List, Tuple, Union, Optional
+from sarah.thread import ThreadExecuter
 
 
 class Command(object):
@@ -45,13 +45,13 @@ class BotBase(object, metaclass=abc.ABCMeta):
         self.plugins = plugins
         self.worker = ThreadPoolExecutor(max_workers=max_workers) \
             if max_workers else None
+        self.message_worker = ThreadExecuter()
 
         # Reset to ease tests in one file
         self.__commands[self.__class__.__name__] = OrderedDict()
         self.__schedules[self.__class__.__name__] = OrderedDict()
 
         self.stop_event = threading.Event()
-        self.sending_queue = None
         self.scheduler = BackgroundScheduler()
         self.load_plugins(self.plugins)
         self.add_schedule_jobs(self.schedules)
@@ -66,6 +66,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
 
     def stop(self) -> None:
         self.stop_event.set()
+        self.message_worker.shutdown(wait=False)
         if self.worker:
             self.worker.shutdown(wait=False)
 
@@ -83,46 +84,8 @@ class BotBase(object, metaclass=abc.ABCMeta):
 
         return wrapper
 
-    def supervise_enqueued_message(self) -> None:
-        """ Supervise the message queue, and send queued messages to chat room
-
-        Send messages queued via concurrent_sending_message(). One message is
-        sent at a time, so it is suitable to ensure thread-safety and avoid
-        sending multiple message in concurrent jobs.
-        """
-        self.sending_queue = Queue()
-
-        def _supervise(stop_event: threading.Event) -> None:
-            while not stop_event.is_set():
-                try:
-                    func = self.sending_queue.get()
-                except Empty:
-                    # Queue is empty.
-                    # sending_queue.empty() doesn't guarantee its emptiness,
-                    # so just call get() and see if exception is raised.
-                    continue
-                except Exception as e:
-                    logging.error('Error on getting task from queue. %s', e)
-                    continue
-
-                try:
-                    func()
-                except Exception as e:
-                    logging.error('Error on sending response. %s', e)
-            return
-
-        t = threading.Thread(target=_supervise, args=(self.stop_event,))
-        t.setDaemon(True)
-        t.start()
-
-    def enqueue_sending_message(self, function, *args, **kwargs):
-        if self.sending_queue is None:
-            msg = ("To utilize this method, supervise_enqueued_message() must "
-                   "be called in run()")
-            logging.error(msg)
-            raise SarahException(msg)
-        else:
-            self.sending_queue.put_nowait(lambda: function(*args, **kwargs))
+    def enqueue_sending_message(self, function, *args, **kwargs) -> Future:
+        return self.message_worker.submit(function, *args, **kwargs)
 
     def load_plugins(self, plugins: Union[List, Tuple]) -> None:
         for module_config in plugins:
