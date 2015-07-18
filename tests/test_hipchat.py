@@ -34,6 +34,7 @@ class MockXMPP(ClientXMPP):
 sarah.hipchat.ClientXMPP = MockXMPP
 
 
+# noinspection PyUnresolvedReferences
 class TestInit(object):
     def test_init(self):
         hipchat = HipChat(nick='Sarah',
@@ -116,6 +117,7 @@ class TestInit(object):
                 assert mock_client_process.call_count == 1
 
 
+# noinspection PyUnresolvedReferences
 class TestFindCommand(object):
     @pytest.fixture
     def hipchat(self, request):
@@ -146,6 +148,7 @@ class TestFindCommand(object):
         assert isinstance(command.function, types.FunctionType) is True
 
 
+# noinspection PyUnresolvedReferences
 class TestMessage(object):
     @pytest.fixture(scope='function')
     def hipchat(self, request):
@@ -216,6 +219,7 @@ class TestMessage(object):
         assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
 
 
+# noinspection PyUnresolvedReferences
 class TestSessionStart(object):
     @pytest.fixture
     def hipchat(self, request):
@@ -279,6 +283,7 @@ class TestSessionStart(object):
                     'Error type: spam. Condition: ham. Content: egg.')
 
 
+# noinspection PyUnresolvedReferences
 class TestJoinRooms(object):
     def test_success(self):
         h = HipChat(nick='Sarah',
@@ -314,6 +319,7 @@ class TestJoinRooms(object):
             assert h.client.plugin['xep_0045'].ourNicks == {}
 
 
+# noinspection PyUnresolvedReferences
 class TestSchedule(object):
     @pytest.fixture
     def hipchat(self, request):

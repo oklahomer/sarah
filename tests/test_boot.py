@@ -5,6 +5,7 @@ from sarah.main import Sarah, SarahException
 
 
 class TestInit(object):
+    # noinspection PyUnresolvedReferences
     @staticmethod
     def test_non_existing_paths():
         non_existing_paths = [os.path.join(
