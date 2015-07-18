@@ -9,9 +9,10 @@ import logging
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
-from typing import Callable, Optional, Dict, Any, Sequence, Iterable
+from typing import Callable, Optional, Sequence
 from sarah.thread import ThreadExecutor
-from sarah.types import CommandFunction, PluginConfig
+from sarah.types import CommandFunction, PluginConfig, AnyFunction, \
+    CommandConfig
 
 
 class Command(object):
@@ -19,21 +20,37 @@ class Command(object):
                  name: str,
                  function: CommandFunction,
                  module_name: str,
-                 config: Dict[str, Any]=None) -> None:
+                 config: CommandConfig=None) -> None:
         if not config:
             config = {}
-        self.name = name
-        self.function = function
-        self.module_name = module_name
-        self.config = config
+        self.__name = name
+        self.__function = function
+        self.__module_name = module_name
+        self.__config = config
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def function(self):
+        return self.__function
+
+    @property
+    def module_name(self):
+        return self.__module_name
+
+    @property
+    def config(self):
+        return self.__config
 
     def execute(self, *args) -> str:
         args = list(args)
-        args.append(self.config)
-        return self.function(*args)
+        args.append(self.__config)
+        return self.__function(*args)
 
-    def set_config(self, config: Dict) -> None:
-        self.config = config
+    def set_config(self, config: CommandConfig) -> None:
+        self.__config = config
 
 
 class BotBase(object, metaclass=abc.ABCMeta):
@@ -73,7 +90,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
             self.worker.shutdown(wait=False)
 
     @classmethod
-    def concurrent(cls, callback_function: Callable[[Iterable[Any]], Any]):
+    def concurrent(cls, callback_function: AnyFunction):
         @wraps(callback_function)
         def wrapper(self, *args, **kwargs):
             if self.worker:

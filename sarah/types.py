@@ -5,4 +5,8 @@ PluginConfig = Tuple[str, Optional[Dict]]
 
 CommandFunction = Callable[[Iterable[Any]], str]
 
+CommandConfig = Dict[str, Any]
+
 Path = AnyStr
+
+AnyFunction = Callable[[Iterable[Any]], Any]
