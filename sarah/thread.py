@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# noinspection PyProtectedMember
 from concurrent.futures.thread import _WorkItem as WorkItem
 from concurrent.futures import Executor, Future
 import logging
@@ -12,7 +13,7 @@ import atexit
 # exit when there is still idle thread in ThreadExecutor (i.e. shutdown() was
 # not called). However, allowing worker to die with the interpreter has two
 # undesirable properties:
-#   - The worker would still be running during interpretor shutdown,
+#   - The worker would still be running during interpreter shutdown,
 #     meaning that they would fail in unpredictable ways.
 #   - The worker could be killed while evaluating a work item, which could
 #     be bad if the callable being evaluated has external side-effects e.g.
@@ -33,6 +34,7 @@ def _python_exit():
 atexit.register(_python_exit)
 
 
+# noinspection PyProtectedMember,PyBroadException
 def _worker(executor_reference, work_queue):
     try:
         while True:
@@ -54,7 +56,7 @@ def _worker(executor_reference, work_queue):
         logging.critical('Exception in worker', exc_info=True)
 
 
-class ThreadExecuter(Executor):
+class ThreadExecutor(Executor):
     def __init__(self):
         """ Initialize a new ThreadExecutor instance. """
         self._work_queue = Queue()

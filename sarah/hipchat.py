@@ -4,26 +4,25 @@ import logging
 import re
 from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Sequence
 from sarah.bot_base import BotBase, Command, concurrent, SarahException
+from sarah.types import Path, PluginConfig
 
 
 class HipChat(BotBase):
     def __init__(self,
-                 plugins: Optional[Union[List, Tuple]]=None,
+                 plugins: Sequence[PluginConfig]=None,
                  jid: str='',
                  password: str='',
-                 rooms: Optional[Union[List, Tuple]]=None,
+                 rooms: Sequence[Path]=None,
                  nick: str='',
-                 proxy: Optional[Dict]=None,
-                 max_workers: Optional[int]=None) -> None:
-        if not plugins:
-            plugins = []
-        if not rooms:
-            rooms = []
+                 proxy: Dict=None,
+                 max_workers: int=None) -> None:
 
         super().__init__(plugins=plugins, max_workers=max_workers)
 
+        if not rooms:
+            rooms = []
         self.rooms = rooms
         self.nick = nick
         self.client = self.setup_xmpp_client(jid, password, proxy)
@@ -35,7 +34,7 @@ class HipChat(BotBase):
                 'Skipping.' % command.module_name)
             return
 
-        def job_function():
+        def job_function() -> None:
             ret = command.execute()
             for room in command.config['rooms']:
                 self.enqueue_sending_message(self.client.send_message,
@@ -54,14 +53,14 @@ class HipChat(BotBase):
 
     def run(self) -> None:
         if not self.client.connect():
-            raise SarahHipChatException('Couldn\'t connect to server.')
+            raise SarahHipChatException("Couldn't connect to server.")
         self.scheduler.start()
         self.client.process(block=True)
 
     def setup_xmpp_client(self,
                           jid: str,
                           password: str,
-                          proxy: Optional[Dict]=None) -> ClientXMPP:
+                          proxy: Dict=None) -> ClientXMPP:
         client = ClientXMPP(jid, password)
 
         if proxy:
@@ -80,7 +79,7 @@ class HipChat(BotBase):
 
         return client
 
-    def session_start(self, event: Dict) -> None:
+    def session_start(self, _: Dict) -> None:
         self.client.send_presence()
 
         # http://sleekxmpp.readthedocs.org/en/latest/getting_started/echobot.html
@@ -107,8 +106,12 @@ class HipChat(BotBase):
             raise SarahHipChatException('Unknown error occurred: %s.' % e)
 
     @concurrent
-    def join_rooms(self, event: Dict) -> None:
-        # You MUST explicitly join rooms to receive message via XMPP interface
+    def join_rooms(self, _: Dict) -> None:
+        if not self.rooms:
+            return
+
+        # You MUST explicitly join rooms to receive message via XMPP
+        # interface
         for room in self.rooms:
             self.client.plugin['xep_0045'].joinMUC(room,
                                                    self.nick,

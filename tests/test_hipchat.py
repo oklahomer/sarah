@@ -16,6 +16,7 @@ import sarah.plugins.simple_counter
 import types
 
 
+# noinspection PyProtectedMember
 class MockXMPP(ClientXMPP):
     def __init__(self, *args):
         super().__init__(*args, sasl_mech=None)
@@ -164,7 +165,7 @@ class TestMessage(object):
         return h
 
     def wait_future_finish(self, future):
-        sleep(.5)  # Why whould I need this line?? Check later.
+        sleep(.5)  # Why would I need this line?? Check later.
 
         ret = concurrent.futures.wait([future], 5, return_when=ALL_COMPLETED)
         if len(ret.not_done) > 0:
@@ -289,7 +290,7 @@ class TestJoinRooms(object):
         with patch.object(h.client.plugin['xep_0045'].xmpp,
                           'send',
                           return_value=None) as _mock_send:
-            h.join_rooms(None)
+            h.join_rooms({})
 
             assert _mock_send.call_count == 1
             assert h.client.plugin['xep_0045'].rooms == {
@@ -306,7 +307,7 @@ class TestJoinRooms(object):
         with patch.object(h.client.plugin['xep_0045'].xmpp,
                           'send',
                           return_value=None) as _mock_send:
-            h.join_rooms(None)
+            h.join_rooms({})
 
             assert _mock_send.call_count == 0
             assert h.client.plugin['xep_0045'].rooms == {}

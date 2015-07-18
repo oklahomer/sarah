@@ -7,7 +7,7 @@ __stash = {}
 
 
 @HipChat.command('.count')
-def count(msg: Dict, config: Dict) -> str:
+def count(msg: Dict, _: Dict) -> str:
     if not msg['from'] in __stash:
         __stash[msg['from']] = {}
 

@@ -1,30 +1,74 @@
 # -*- coding: utf-8 -*-
 # https://api.slack.com/rtm
 from concurrent.futures import Future
-
+import json
 import logging
-from typing import Optional, Union, List, Tuple, Dict
+from typing import Optional, Dict, Sequence
 import requests
-from requests.compat import json
 from websocket import WebSocketApp
 from sarah.bot_base import BotBase, Command, concurrent
+from sarah.types import PluginConfig
+
+
+class SlackClient(object):
+    def __init__(self,
+                 token: str,
+                 base_url: str='https://slack.com/api/') -> None:
+        self.base_url = base_url
+        self.token = token
+
+    def generate_endpoint(self, method: str) -> str:
+        # https://api.slack.com/methods
+        return self.base_url + method if self.base_url.endswith('/') else \
+            self.base_url + '/' + method
+
+    def get(self, method) -> Dict:
+        return self.request('GET', method)
+
+    def post(self, method, params=None, data=None) -> Dict:
+        return self.request('POST', method, params, data)
+
+    def request(self,
+                http_method: str,
+                method: str,
+                params: Dict=None,
+                data: Dict=None) -> Dict:
+        http_method = http_method.upper()
+        endpoint = self.generate_endpoint(method)
+
+        if not params:
+            params = {}
+        if self.token:
+            params['token'] = self.token
+
+        try:
+            response = requests.request(http_method,
+                                        endpoint,
+                                        params=params,
+                                        data=data)
+        except Exception as e:
+            logging.error(e)
+            raise e
+
+        # Avoid "can't use a string pattern on a bytes-like object"
+        # j = json.loads(response.content)
+        return json.loads(response.content.decode())
 
 
 class Slack(BotBase):
     def __init__(self,
                  token: str='',
-                 plugins: Optional[Union[List, Tuple]]=None,
-                 max_workers: Optional[int]=None) -> None:
-        if not plugins:
-            plugins = []
+                 plugins: Sequence[PluginConfig]=None,
+                 max_workers: int=None) -> None:
 
         super().__init__(plugins=plugins, max_workers=max_workers)
 
-        self.setup_client(token=token)
+        self.client = self.setup_client(token=token)
         self.message_id = 0
+        self.ws = None
 
-    def setup_client(self, token: str) -> None:
-        self.client = SlackClient(token=token)
+    def setup_client(self, token: str) -> SlackClient:
+        return SlackClient(token=token)
 
     def run(self) -> None:
         response = self.client.get('rtm.start')
@@ -40,7 +84,7 @@ class Slack(BotBase):
         raise NotImplementedError('Hold your horses.')
 
     @concurrent
-    def message(self, ws: WebSocketApp, event: str) -> None:
+    def message(self, _: WebSocketApp, event: str) -> None:
         decoded_event = json.loads(event)
 
         if 'ok' in decoded_event and 'reply_to' in decoded_event:
@@ -90,7 +134,7 @@ class Slack(BotBase):
             type_map[decoded_event['type']]['method'](decoded_event)
             return
 
-    def handle_hello(self, content: Dict) -> None:
+    def handle_hello(self, _: Dict) -> None:
         logging.info('Successfully connected to the server.')
 
     def handle_message(self, content: Dict) -> Optional[Future]:
@@ -110,19 +154,19 @@ class Slack(BotBase):
                                             content['channel'],
                                             content['text'])
 
-    def on_error(self, ws: WebSocketApp, error) -> None:
+    def on_error(self, _: WebSocketApp, error) -> None:
         logging.error(error)
 
-    def on_open(self, ws: WebSocketApp) -> None:
+    def on_open(self, _: WebSocketApp) -> None:
         logging.info('connected')
 
-    def on_close(self, ws: WebSocketApp) -> None:
+    def on_close(self, _: WebSocketApp) -> None:
         logging.info('closed')
 
     def send_message(self,
                      channel: str,
                      text: str,
-                     message_type: Optional[str]='message') -> None:
+                     message_type: str='message') -> None:
         params = {'channel': channel,
                   'text': text,
                   'type': message_type,
@@ -139,48 +183,3 @@ class Slack(BotBase):
     def stop(self) -> None:
         # TODO
         raise NotImplementedError('hold your horses')
-
-
-class SlackClient(object):
-    def __init__(self,
-                 token: str,
-                 base_url: Optional[str]='https://slack.com/api/') -> None:
-        self.base_url = base_url
-        self.token = token
-
-    def generate_endpoint(self, method: str) -> str:
-        # https://api.slack.com/methods
-        return self.base_url + method if self.base_url.endswith('/') else \
-            self.base_url + '/' + method
-
-    def get(self, method) -> Dict:
-        return self.request('GET', method)
-
-    def post(self, method, params=None, data=None) -> Dict:
-        return self.request('POST', method, params, data)
-
-    def request(self,
-                http_method: str,
-                method: str,
-                params: Optional[Dict]=None,
-                data: Optional[Dict]=None) -> Dict:
-        http_method = http_method.upper()
-        endpoint = self.generate_endpoint(method)
-
-        if not params:
-            params = {}
-        if self.token:
-            params['token'] = self.token
-
-        try:
-            response = requests.request(http_method,
-                                        endpoint,
-                                        params=params,
-                                        data=data)
-        except Exception as e:
-            # TODO
-            print(e)
-
-        # Avoid "can't use a string pattern on a bytes-like object"
-        # j = json.loads(response.content)
-        return json.loads(response.content.decode())
