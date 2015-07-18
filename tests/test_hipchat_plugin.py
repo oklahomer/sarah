@@ -14,6 +14,7 @@ class TestEcho(object):
 
 
 class TestSimpleCounter(object):
+    # noinspection PyUnusedLocal
     def setup_method(self, method):
         reset_count({'original_text': '.reset_count',
                      'text': '',

@@ -6,8 +6,9 @@ from sarah.hipchat import HipChat
 __stash = {}
 
 
+# noinspection PyUnusedLocal
 @HipChat.command('.count')
-def count(msg: Dict, _: Dict) -> str:
+def count(msg: Dict, config: Dict) -> str:
     if not msg['from'] in __stash:
         __stash[msg['from']] = {}
 
@@ -17,6 +18,7 @@ def count(msg: Dict, _: Dict) -> str:
     return str(cnt)
 
 
+# noinspection PyUnusedLocal
 @HipChat.command('.reset_count')
 def reset_count(msg: Dict, config: Dict) -> str:
     global __stash

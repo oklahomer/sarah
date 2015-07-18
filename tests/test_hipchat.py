@@ -119,6 +119,7 @@ class TestInit(object):
 
 # noinspection PyUnresolvedReferences
 class TestFindCommand(object):
+    # noinspection PyUnusedLocal
     @pytest.fixture
     def hipchat(self, request):
         # NO h.start() for this test
@@ -221,6 +222,7 @@ class TestMessage(object):
 
 # noinspection PyUnresolvedReferences
 class TestSessionStart(object):
+    # noinspection PyUnusedLocal
     @pytest.fixture
     def hipchat(self, request):
         # NO h.start() for this test
@@ -321,6 +323,7 @@ class TestJoinRooms(object):
 
 # noinspection PyUnresolvedReferences
 class TestSchedule(object):
+    # noinspection PyUnusedLocal
     @pytest.fixture
     def hipchat(self, request):
         # NO h.start() for this test

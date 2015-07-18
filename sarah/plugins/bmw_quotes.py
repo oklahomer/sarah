@@ -29,11 +29,13 @@ quotes = (("Eric: So I said to myself, 'Kyle,'\n"
            "\"God made dirt, dirt won't hurt.\""))
 
 
+# noinspection PyUnusedLocal
 @HipChat.command('.bmw')
 def quote(msg: Dict, config: Dict) -> str:
     return random.choice(quotes)
 
 
+# noinspection PyUnusedLocal
 @HipChat.schedule('bmw_quotes')
 def scheduled_quote(config: Dict) -> str:
     return random.choice(quotes)
