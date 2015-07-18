@@ -6,5 +6,5 @@ from sarah.hipchat import HipChat
 
 # noinspection PyUnusedLocal
 @HipChat.command('.echo')
-def echo(msg: Dict, config: Dict) -> str:
-    return msg['text']
+def echo(msg: HipChat.CommandMessage, config: Dict) -> str:
+    return msg.text

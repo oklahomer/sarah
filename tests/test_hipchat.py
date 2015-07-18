@@ -11,7 +11,7 @@ from sleekxmpp.test import TestSocket
 from sleekxmpp.stanza import Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from mock import MagicMock, call, patch
-from sarah.hipchat import HipChat, SarahHipChatException
+from sarah.hipchat import HipChat, SarahHipChatException, CommandMessage
 import sarah.plugins.simple_counter
 import types
 
@@ -374,3 +374,17 @@ class TestSchedule(object):
         assert isinstance(jobs[0].trigger, IntervalTrigger) is True
         assert jobs[0].trigger.interval_length == 300
         assert isinstance(jobs[0].func, types.FunctionType) is True
+
+
+class TestCommandMessage(object):
+    def test_init(self):
+        msg = CommandMessage(original_text='.count foo',
+                             text='foo',
+                             sender='123_homer@localhost/Oklahomer')
+        assert msg.original_text == '.count foo'
+        assert msg.text == 'foo'
+        assert msg.sender == '123_homer@localhost/Oklahomer'
+
+        # Can't change
+        msg.__original_text = 'foo'
+        assert msg.original_text == '.count foo'

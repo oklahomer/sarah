@@ -31,7 +31,7 @@ quotes = (("Eric: So I said to myself, 'Kyle,'\n"
 
 # noinspection PyUnusedLocal
 @HipChat.command('.bmw')
-def quote(msg: Dict, config: Dict) -> str:
+def quote(msg: HipChat.CommandMessage, config: Dict) -> str:
     return random.choice(quotes)
 
 

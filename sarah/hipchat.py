@@ -9,7 +9,28 @@ from sarah.bot_base import BotBase, Command, concurrent, SarahException
 from sarah.types import Path, PluginConfig
 
 
+class CommandMessage:
+    def __init__(self, original_text: str, text: str, sender: str):
+        self.__original_text = original_text
+        self.__text = text
+        self.__sender = sender
+
+    @property
+    def original_text(self):
+        return self.__original_text
+
+    @property
+    def text(self):
+        return self.__text
+
+    @property
+    def sender(self):
+        return self.__sender
+
+
 class HipChat(BotBase):
+    CommandMessage = CommandMessage
+
     def __init__(self,
                  plugins: Sequence[PluginConfig]=None,
                  jid: str='',
@@ -147,9 +168,9 @@ class HipChat(BotBase):
 
         text = re.sub(r'{0}\s+'.format(command.name), '', msg['body'])
         try:
-            ret = command.execute({'original_text': msg['body'],
-                                   'text': text,
-                                   'from': msg['from']})
+            ret = command.execute(CommandMessage(original_text=msg['body'],
+                                                 text=text,
+                                                 sender=msg['from']))
         except Exception as e:
             logging.error('Error occurred. '
                           'command: %s. input: %s. error: %s.' % (
