@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 import os
 from setuptools import setup, find_packages
+# noinspection PyPep8Naming
 from sarah import __name__ as PACKAGE_NAME
 from sarah import VERSION
 
 DESCRIPTION = "Handy Bot"
-ROOT_DIR = os.path.dirname
+ROOT_DIR = os.path.dirname(__file__)
 SOURCE_DIR = os.path.join(ROOT_DIR)
 
 try:
+    # noinspection PyPackageRequirements,PyUnresolvedReferences
     import pypandoc
 
     long_description = pypandoc.convert('README.md', 'rst')
 except(IOError, ImportError, OSError, RuntimeError):
+    # noinspection PyBroadException
     try:
         long_description = open(os.path.join(
             os.path.dirname(__file__), 'README.md')).read()

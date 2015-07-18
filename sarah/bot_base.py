@@ -9,30 +9,48 @@ import logging
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
-from typing import Callable, List, Tuple, Union, Optional
-from sarah.thread import ThreadExecuter
+from typing import Callable, Optional, Sequence
+from sarah.thread import ThreadExecutor
+from sarah.types import CommandFunction, PluginConfig, AnyFunction, \
+    CommandConfig
 
 
 class Command(object):
     def __init__(self,
                  name: str,
-                 function: Callable,
+                 function: CommandFunction,
                  module_name: str,
-                 config: Optional[dict]=None) -> None:
+                 config: CommandConfig=None) -> None:
         if not config:
             config = {}
-        self.name = name
-        self.function = function
-        self.module_name = module_name
-        self.config = config
+        self.__name = name
+        self.__function = function
+        self.__module_name = module_name
+        self.__config = config
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def function(self):
+        return self.__function
+
+    @property
+    def module_name(self):
+        return self.__module_name
+
+    @property
+    def config(self):
+        return self.__config
 
     def execute(self, *args) -> str:
         args = list(args)
-        args.append(self.config)
-        return self.function(*args)
+        args.append(self.__config)
+        return self.__function(*args)
 
-    def set_config(self, config: dict) -> None:
-        self.config = config
+    def set_config(self, config: CommandConfig) -> None:
+        self.__config = config
 
 
 class BotBase(object, metaclass=abc.ABCMeta):
@@ -40,20 +58,21 @@ class BotBase(object, metaclass=abc.ABCMeta):
     __schedules = {}
 
     def __init__(self,
-                 plugins: Union[List, Tuple],
+                 plugins: Sequence[PluginConfig]=None,
                  max_workers: Optional[int]=None) -> None:
         self.plugins = plugins
         self.worker = ThreadPoolExecutor(max_workers=max_workers) \
             if max_workers else None
-        self.message_worker = ThreadExecuter()
+        self.message_worker = ThreadExecutor()
 
         # Reset to ease tests in one file
         self.__commands[self.__class__.__name__] = OrderedDict()
         self.__schedules[self.__class__.__name__] = OrderedDict()
 
+        if self.plugins:
+            self.load_plugins(self.plugins)
         self.stop_event = threading.Event()
         self.scheduler = BackgroundScheduler()
-        self.load_plugins(self.plugins)
         self.add_schedule_jobs(self.schedules)
 
     @abc.abstractmethod
@@ -71,7 +90,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
             self.worker.shutdown(wait=False)
 
     @classmethod
-    def concurrent(cls, callback_function):
+    def concurrent(cls, callback_function: AnyFunction):
         @wraps(callback_function)
         def wrapper(self, *args, **kwargs):
             if self.worker:
@@ -87,11 +106,12 @@ class BotBase(object, metaclass=abc.ABCMeta):
     def enqueue_sending_message(self, function, *args, **kwargs) -> Future:
         return self.message_worker.submit(function, *args, **kwargs)
 
-    def load_plugins(self, plugins: Union[List, Tuple]) -> None:
+    def load_plugins(self, plugins: Sequence[PluginConfig]) -> None:
         for module_config in plugins:
             self.load_plugin(module_config[0])
 
-    def load_plugin(self, module_name: str) -> None:
+    @staticmethod
+    def load_plugin(module_name: str) -> None:
         try:
             if module_name in sys.modules.keys():
                 imp.reload(sys.modules[module_name])
@@ -128,13 +148,13 @@ class BotBase(object, metaclass=abc.ABCMeta):
         return self.__schedules.get(self.__class__.__name__, OrderedDict())
 
     @classmethod
-    def schedule(cls, name: str) -> Callable:
+    def schedule(cls, name: str) -> Callable[[CommandFunction], None]:
         if cls.__name__ not in cls.__schedules:
             cls.__schedules[cls.__name__] = OrderedDict()
 
-        def wrapper(func):
+        def wrapper(func: CommandFunction) -> None:
             @wraps(func)
-            def wrapped_function(*args, **kwargs):
+            def wrapped_function(*args, **kwargs) -> str:
                 return func(*args, **kwargs)
 
             # If command name duplicates, update with the later one.
@@ -163,10 +183,11 @@ class BotBase(object, metaclass=abc.ABCMeta):
         return self.__commands.get(self.__class__.__name__, OrderedDict())
 
     @classmethod
-    def command(cls, name) -> Callable:
-        def wrapper(func):
+    def command(cls, name: str) -> Callable[[CommandFunction],
+                                            CommandFunction]:
+        def wrapper(func: CommandFunction) -> CommandFunction:
             @wraps(func)
-            def wrapped_function(*args, **kwargs):
+            def wrapped_function(*args, **kwargs) -> str:
                 return func(*args, **kwargs)
 
             cls.add_command(name, wrapped_function, func.__module__)
@@ -175,7 +196,9 @@ class BotBase(object, metaclass=abc.ABCMeta):
         return wrapper
 
     @classmethod
-    def add_command(cls, name: str, func: Callable, module_name: str) -> None:
+    def add_command(cls, name: str,
+                    func: CommandFunction,
+                    module_name: str) -> None:
         if cls.__name__ not in cls.__commands:
             cls.__commands[cls.__name__] = OrderedDict()
 

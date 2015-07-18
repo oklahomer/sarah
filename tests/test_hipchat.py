@@ -11,11 +11,12 @@ from sleekxmpp.test import TestSocket
 from sleekxmpp.stanza import Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from mock import MagicMock, call, patch
-from sarah.hipchat import HipChat, SarahHipChatException
+from sarah.hipchat import HipChat, SarahHipChatException, CommandMessage
 import sarah.plugins.simple_counter
 import types
 
 
+# noinspection PyProtectedMember
 class MockXMPP(ClientXMPP):
     def __init__(self, *args):
         super().__init__(*args, sasl_mech=None)
@@ -33,6 +34,7 @@ class MockXMPP(ClientXMPP):
 sarah.hipchat.ClientXMPP = MockXMPP
 
 
+# noinspection PyUnresolvedReferences
 class TestInit(object):
     def test_init(self):
         hipchat = HipChat(nick='Sarah',
@@ -115,7 +117,9 @@ class TestInit(object):
                 assert mock_client_process.call_count == 1
 
 
+# noinspection PyUnresolvedReferences
 class TestFindCommand(object):
+    # noinspection PyUnusedLocal
     @pytest.fixture
     def hipchat(self, request):
         # NO h.start() for this test
@@ -145,6 +149,7 @@ class TestFindCommand(object):
         assert isinstance(command.function, types.FunctionType) is True
 
 
+# noinspection PyUnresolvedReferences
 class TestMessage(object):
     @pytest.fixture(scope='function')
     def hipchat(self, request):
@@ -164,7 +169,7 @@ class TestMessage(object):
         return h
 
     def wait_future_finish(self, future):
-        sleep(.5)  # Why whould I need this line?? Check later.
+        sleep(.5)  # Why would I need this line?? Check later.
 
         ret = concurrent.futures.wait([future], 5, return_when=ALL_COMPLETED)
         if len(ret.not_done) > 0:
@@ -215,7 +220,9 @@ class TestMessage(object):
         assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
 
 
+# noinspection PyUnresolvedReferences
 class TestSessionStart(object):
+    # noinspection PyUnusedLocal
     @pytest.fixture
     def hipchat(self, request):
         # NO h.start() for this test
@@ -278,6 +285,7 @@ class TestSessionStart(object):
                     'Error type: spam. Condition: ham. Content: egg.')
 
 
+# noinspection PyUnresolvedReferences
 class TestJoinRooms(object):
     def test_success(self):
         h = HipChat(nick='Sarah',
@@ -289,7 +297,7 @@ class TestJoinRooms(object):
         with patch.object(h.client.plugin['xep_0045'].xmpp,
                           'send',
                           return_value=None) as _mock_send:
-            h.join_rooms(None)
+            h.join_rooms({})
 
             assert _mock_send.call_count == 1
             assert h.client.plugin['xep_0045'].rooms == {
@@ -306,14 +314,16 @@ class TestJoinRooms(object):
         with patch.object(h.client.plugin['xep_0045'].xmpp,
                           'send',
                           return_value=None) as _mock_send:
-            h.join_rooms(None)
+            h.join_rooms({})
 
             assert _mock_send.call_count == 0
             assert h.client.plugin['xep_0045'].rooms == {}
             assert h.client.plugin['xep_0045'].ourNicks == {}
 
 
+# noinspection PyUnresolvedReferences
 class TestSchedule(object):
+    # noinspection PyUnusedLocal
     @pytest.fixture
     def hipchat(self, request):
         # NO h.start() for this test
@@ -364,3 +374,17 @@ class TestSchedule(object):
         assert isinstance(jobs[0].trigger, IntervalTrigger) is True
         assert jobs[0].trigger.interval_length == 300
         assert isinstance(jobs[0].func, types.FunctionType) is True
+
+
+class TestCommandMessage(object):
+    def test_init(self):
+        msg = CommandMessage(original_text='.count foo',
+                             text='foo',
+                             sender='123_homer@localhost/Oklahomer')
+        assert msg.original_text == '.count foo'
+        assert msg.text == 'foo'
+        assert msg.sender == '123_homer@localhost/Oklahomer'
+
+        # Can't change
+        msg.__original_text = 'foo'
+        assert msg.original_text == '.count foo'

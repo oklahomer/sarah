@@ -2,16 +2,17 @@
 
 import logging
 import os
-from typing import Optional, Union, List, Tuple, Dict
+from typing import Dict, Sequence
 import yaml
 from threading import Thread
 from sarah.hipchat import HipChat
 from sarah.slack import Slack
+from sarah.types import Path
 
 
 class Sarah(object):
     def __init__(self,
-                 config_paths: Optional[Union[List, Tuple]]=None) -> None:
+                 config_paths: Sequence[Path]) -> None:
 
         self.config = self.load_config(config_paths)
 
@@ -29,10 +30,11 @@ class Sarah(object):
             slack_thread.start()
 
     @staticmethod
-    def load_config(paths: Optional[Union[List, Tuple]]=None) -> Dict:
+    def load_config(paths: Sequence[Path]) -> Dict:
         config = {}
+
         if not paths:
-            paths = []
+            return config
 
         for path in paths:
             is_file = os.path.isfile(path)

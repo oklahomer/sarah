@@ -5,7 +5,9 @@ from sarah.main import Sarah, SarahException
 
 
 class TestInit(object):
-    def test_non_existing_paths(self):
+    # noinspection PyUnresolvedReferences
+    @staticmethod
+    def test_non_existing_paths():
         non_existing_paths = [os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             'non_existing_file.yaml')]
