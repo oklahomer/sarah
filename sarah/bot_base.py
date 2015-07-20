@@ -6,7 +6,6 @@ from functools import wraps
 import imp
 import importlib
 import logging
-import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
 from typing import Callable, Optional, Sequence
@@ -61,33 +60,56 @@ class BotBase(object, metaclass=abc.ABCMeta):
                  plugins: Sequence[PluginConfig]=None,
                  max_workers: Optional[int]=None) -> None:
         self.plugins = plugins
-        self.worker = ThreadPoolExecutor(max_workers=max_workers) \
-            if max_workers else None
-        self.message_worker = ThreadExecutor()
+        self.max_workers = max_workers
+        self.scheduler = BackgroundScheduler()
+
+        # To be set on run()
+        self.worker = None
+        self.message_worker = None
 
         # Reset to ease tests in one file
         self.__commands[self.__class__.__name__] = OrderedDict()
         self.__schedules[self.__class__.__name__] = OrderedDict()
 
-        if self.plugins:
-            self.load_plugins(self.plugins)
-        self.stop_event = threading.Event()
-        self.scheduler = BackgroundScheduler()
-        self.add_schedule_jobs(self.schedules)
-
-    @abc.abstractmethod
-    def run(self) -> None:
-        pass
-
     @abc.abstractmethod
     def add_schedule_job(self, command: Command) -> None:
         pass
 
+    @abc.abstractmethod
+    def connect(self) -> None:
+        pass
+
+    def run(self) -> None:
+        # Setup required workers
+        self.worker = ThreadPoolExecutor(max_workers=self.max_workers) \
+            if self.max_workers else None
+        self.message_worker = ThreadExecutor()
+
+        # Load plugins
+        if self.plugins:
+            self.load_plugins(self.plugins)
+
+        # Set scheduled job
+        self.add_schedule_jobs(self.schedules)
+        self.scheduler.start()
+
+        self.connect()
+
     def stop(self) -> None:
-        self.stop_event.set()
+        logging.info('STOP MESSAGE WORKER')
         self.message_worker.shutdown(wait=False)
+
+        logging.info('STOP CONCURRENT WORKER')
         if self.worker:
             self.worker.shutdown(wait=False)
+
+        logging.info('STOP SCHEDULER')
+        if self.scheduler.running:
+            try:
+                self.scheduler.shutdown()
+                logging.info('CANCELLED SCHEDULED WORK')
+            except Exception as e:
+                logging.error(e)
 
     @classmethod
     def concurrent(cls, callback_function: AnyFunction):

@@ -70,7 +70,7 @@ class Slack(BotBase):
     def setup_client(self, token: str) -> SlackClient:
         return SlackClient(token=token)
 
-    def run(self) -> None:
+    def connect(self) -> None:
         response = self.client.get('rtm.start')
         self.ws = WebSocketApp(response['url'],
                                on_message=self.message,

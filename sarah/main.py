@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from multiprocessing import Process
 import os
 from typing import Dict, Sequence
 import yaml
-from threading import Thread
 from sarah.hipchat import HipChat
 from sarah.slack import Slack
 from sarah.types import Path
@@ -20,14 +20,14 @@ class Sarah(object):
         if 'hipchat' in self.config:
             logging.info('Start HipChat integration')
             hipchat = HipChat(**self.config['hipchat'])
-            hipchat_thread = Thread(target=hipchat.run)
-            hipchat_thread.start()
+            hipchat_process = Process(target=hipchat.run)
+            hipchat_process.start()
 
         if 'slack' in self.config:
             logging.info('Start Slack integration')
             slack = Slack(**self.config['slack'])
-            slack_thread = Thread(target=slack.run)
-            slack_thread.start()
+            slack_process = Process(target=slack.run)
+            slack_process.start()
 
     @staticmethod
     def load_config(paths: Sequence[Path]) -> Dict:

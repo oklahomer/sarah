@@ -4,12 +4,12 @@ from concurrent.futures import ALL_COMPLETED
 from time import sleep
 import pytest
 import logging
-from threading import Thread
 from apscheduler.triggers.interval import IntervalTrigger
 from sleekxmpp import ClientXMPP
 from sleekxmpp.test import TestSocket
 from sleekxmpp.stanza import Message
 from sleekxmpp.exceptions import IqTimeout, IqError
+from sleekxmpp.xmlstream import JID
 from mock import MagicMock, call, patch
 from sarah.hipchat import HipChat, SarahHipChatException, CommandMessage
 import sarah.plugins.simple_counter
@@ -40,6 +40,7 @@ class TestInit(object):
         hipchat = HipChat(nick='Sarah',
                           jid='test@localhost',
                           password='password',
+                          rooms=['123_homer@localhost'],
                           plugins=(('sarah.plugins.simple_counter', {}),
                                    ('sarah.plugins.echo', {})),
                           proxy={'host': 'localhost',
@@ -47,8 +48,32 @@ class TestInit(object):
                                  'username': 'homers',
                                  'password': 'mypassword'})
 
+        assert hipchat.nick == 'Sarah'
+        assert hipchat.rooms == ['123_homer@localhost']
+        assert hipchat.client.requested_jid == JID('test@localhost',
+                                                   cache_lock=True)
+
         assert isinstance(hipchat, HipChat) is True
         assert isinstance(hipchat.client, ClientXMPP) is True
+
+        assert hipchat.client.use_proxy is True
+        assert hipchat.client.proxy_config == {'host': 'localhost',
+                                               'port': 1234,
+                                               'username': 'homers',
+                                               'password': 'mypassword'}
+
+    def test_load_plugins(self):
+        hipchat = HipChat(nick='Sarah',
+                          jid='test@localhost',
+                          password='password',
+                          plugins=(('sarah.plugins.simple_counter', {}),
+                                   ('sarah.plugins.echo', {})),
+                          proxy={'host': 'localhost',
+                                 'port': 1234,
+                                 'username': 'homers',
+                                 'password': 'mypassword'})
+
+        hipchat.load_plugins(hipchat.plugins)
 
         assert list(hipchat.commands.keys()) == ['.count',
                                                  '.reset_count',
@@ -68,17 +93,12 @@ class TestInit(object):
         assert commands[2].module_name == 'sarah.plugins.echo'
         assert isinstance(commands[2].function, types.FunctionType) is True
 
-        assert hipchat.client.use_proxy is True
-        assert hipchat.client.proxy_config == {'host': 'localhost',
-                                               'port': 1234,
-                                               'username': 'homers',
-                                               'password': 'mypassword'}
-
     def test_non_existing_plugin(self):
         h = HipChat(nick='Sarah',
                     jid='test@localhost',
                     password='password',
                     plugins=(('spam.ham.egg.onion', {}),))
+        h.load_plugins(h.plugins)
         assert len(h.commands) == 0
         assert len(h.scheduler.get_jobs()) == 0
 
@@ -104,17 +124,13 @@ class TestInit(object):
 
         with patch.object(hipchat.client, 'connect', return_value=True):
             with patch.object(
-                    hipchat.scheduler,
-                    'start',
-                    return_value=True) as mock_scheduler_start:
-                with patch.object(
-                        hipchat.client,
-                        'process',
-                        return_value=True) as mock_client_process:
-                    hipchat.run()
+                    hipchat.client,
+                    'process',
+                    return_value=True) as mock_client_process:
+                hipchat.run()
 
-                assert mock_scheduler_start.call_count == 1
                 assert mock_client_process.call_count == 1
+                assert hipchat.scheduler.running is True
 
 
 # noinspection PyUnresolvedReferences
@@ -128,6 +144,7 @@ class TestFindCommand(object):
                     password='password',
                     plugins=(('sarah.plugins.simple_counter', {'spam': 'ham'}),
                              ('sarah.plugins.echo',)))
+        h.load_plugins(h.plugins)
         return h
 
     def test_no_corresponding_command(self, hipchat):
@@ -162,9 +179,7 @@ class TestMessage(object):
         h.client.connect = lambda: True
         h.client.process = lambda *args, **kwargs: True
         request.addfinalizer(h.stop)
-
-        t = Thread(target=h.run)
-        t.start()
+        h.run()
 
         return h
 
@@ -323,25 +338,15 @@ class TestJoinRooms(object):
 
 # noinspection PyUnresolvedReferences
 class TestSchedule(object):
-    # noinspection PyUnusedLocal
-    @pytest.fixture
-    def hipchat(self, request):
-        # NO h.start() for this test
-        h = HipChat(nick='Sarah',
-                    jid='test@localhost',
-                    password='password',
-                    plugins=(('sarah.plugins.bmw_quotes',
-                              {'rooms': ('123_homer@localhost',),
-                               'interval': 5})))
-        return h
-
     def test_missing_config(self):
         logging.warning = MagicMock()
 
-        HipChat(nick='Sarah',
-                jid='test@localhost',
-                password='password',
-                plugins=(('sarah.plugins.bmw_quotes',),))
+        hipchat = HipChat(nick='Sarah',
+                          jid='test@localhost',
+                          password='password',
+                          plugins=(('sarah.plugins.bmw_quotes',),))
+        hipchat.connect = lambda: True
+        hipchat.run()
 
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
@@ -351,10 +356,13 @@ class TestSchedule(object):
     def test_missing_rooms_config(self):
         logging.warning = MagicMock()
 
-        HipChat(nick='Sarah',
-                jid='test@localhost',
-                password='password',
-                plugins=(('sarah.plugins.bmw_quotes', {}),))
+        hipchat = HipChat(nick='Sarah',
+                          jid='test@localhost',
+                          password='password',
+                          plugins=(('sarah.plugins.bmw_quotes', {}),))
+        hipchat.connect = lambda: True
+        hipchat.load_plugins(hipchat.plugins)
+        hipchat.run()
 
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
@@ -367,6 +375,8 @@ class TestSchedule(object):
                           password='password',
                           plugins=(('sarah.plugins.bmw_quotes',
                                     {'rooms': ('123_homer@localhost',)}),))
+        hipchat.connect = lambda: True
+        hipchat.run()
 
         jobs = hipchat.scheduler.get_jobs()
         assert len(jobs) == 1
