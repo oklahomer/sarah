@@ -6,7 +6,7 @@ from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from typing import Dict, Optional, Sequence
 from sarah.bot_base import BotBase, Command, concurrent, SarahException
-from sarah.types import Path, PluginConfig
+from sarah.types import PluginConfig
 
 
 class CommandMessage:
@@ -35,7 +35,7 @@ class HipChat(BotBase):
                  plugins: Sequence[PluginConfig]=None,
                  jid: str='',
                  password: str='',
-                 rooms: Sequence[Path]=None,
+                 rooms: Sequence[str]=None,
                  nick: str='',
                  proxy: Dict=None,
                  max_workers: int=None) -> None:
@@ -72,10 +72,9 @@ class HipChat(BotBase):
             id=job_id,
             minutes=command.config.get('interval', 5))
 
-    def run(self) -> None:
+    def connect(self) -> None:
         if not self.client.connect():
             raise SarahHipChatException("Couldn't connect to server.")
-        self.scheduler.start()
         self.client.process(block=True)
 
     def setup_xmpp_client(self,
@@ -183,14 +182,6 @@ class HipChat(BotBase):
 
     def stop(self) -> None:
         super().stop()
-        logging.info('STOP SCHEDULER')
-        if self.scheduler.running:
-            try:
-                self.scheduler.shutdown()
-                logging.info('CANCELLED SCHEDULED WORK')
-            except Exception as e:
-                logging.error(e)
-
         logging.info('STOP HIPCHAT INTEGRATION')
         if hasattr(self, 'client') and self.client is not None:
             self.client.socket.recv_data(self.client.stream_footer)
