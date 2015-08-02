@@ -5,9 +5,16 @@ from sarah.main import Sarah, SarahException
 
 
 class TestInit(object):
-    # noinspection PyUnresolvedReferences
-    @staticmethod
-    def test_non_existing_paths():
+    def test_valid_config(self):
+        valid_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  'resource',
+                                  'config',
+                                  'valid.yaml')
+        sarah = Sarah(config_paths=[valid_path])
+        assert type(sarah.config) == dict
+        assert 'hipchat' in sarah.config
+
+    def test_non_existing_paths(self):
         non_existing_paths = [os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             'non_existing_file.yaml')]
