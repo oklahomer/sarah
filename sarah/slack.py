@@ -7,7 +7,7 @@ import re
 from typing import Optional, Dict, Sequence
 import requests
 from websocket import WebSocketApp
-from sarah.bot_base import BotBase, Command, concurrent
+from sarah.bot_base import BotBase, Command, concurrent, SarahException
 from sarah.types import PluginConfig
 
 
@@ -93,13 +93,23 @@ class Slack(BotBase):
         return SlackClient(token=token)
 
     def connect(self) -> None:
-        response = self.client.get('rtm.start')
-        self.ws = WebSocketApp(response['url'],
-                               on_message=self.message,
-                               on_error=self.on_error,
-                               on_open=self.on_open,
-                               on_close=self.on_close)
-        self.ws.run_forever()
+        try:
+            response = self.client.get('rtm.start')
+        except Exception as e:
+            raise SarahSlackException(
+                "Slack request error on /rtm.start. %s" % e)
+        else:
+            if 'url' not in response:
+                raise SarahSlackException(
+                    "Slack response did not contain connecting url. %s" %
+                    response)
+
+            self.ws = WebSocketApp(response['url'],
+                                   on_message=self.message,
+                                   on_error=self.on_error,
+                                   on_open=self.on_open,
+                                   on_close=self.on_close)
+            self.ws.run_forever()
 
     def add_schedule_job(self, command: Command) -> None:
         if 'channels' not in command.config:
@@ -250,3 +260,7 @@ class Slack(BotBase):
         super().stop()
         logging.info('STOP SLACK INTEGRATION')
         self.ws.close()
+
+
+class SarahSlackException(SarahException):
+    pass
