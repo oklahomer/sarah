@@ -3,11 +3,31 @@
 from concurrent.futures import Future
 import json
 import logging
+import re
 from typing import Optional, Dict, Sequence
 import requests
 from websocket import WebSocketApp
 from sarah.bot_base import BotBase, Command, concurrent
 from sarah.types import PluginConfig
+
+
+class CommandMessage:
+    def __init__(self, original_text: str, text: str, sender: str):
+        self.__original_text = original_text
+        self.__text = text
+        self.__sender = sender
+
+    @property
+    def original_text(self):
+        return self.__original_text
+
+    @property
+    def text(self):
+        return self.__text
+
+    @property
+    def sender(self):
+        return self.__sender
 
 
 class SlackClient(object):
@@ -56,6 +76,8 @@ class SlackClient(object):
 
 
 class Slack(BotBase):
+    CommandMessage = CommandMessage
+
     def __init__(self,
                  token: str='',
                  plugins: Sequence[PluginConfig]=None,
@@ -80,8 +102,26 @@ class Slack(BotBase):
         self.ws.run_forever()
 
     def add_schedule_job(self, command: Command) -> None:
-        # TODO
-        raise NotImplementedError('Hold your horses.')
+        if 'channels' not in command.config:
+            logging.warning(
+                'Missing channel configuration for schedule job. %s. '
+                'Skipping.' % command.module_name)
+            return
+
+        def job_function() -> None:
+            ret = command.execute()
+            for channel in command.config['channels']:
+                self.enqueue_sending_message(self.send_message,
+                                             channel,
+                                             ret)
+
+        job_id = '%s.%s' % (command.module_name, command.name)
+        logging.info("Add schedule %s" % id)
+        self.scheduler.add_job(
+            job_function,
+            'interval',
+            id=job_id,
+            minutes=command.config.get('interval', 5))
 
     @concurrent
     def message(self, _: WebSocketApp, event: str) -> None:
@@ -138,6 +178,15 @@ class Slack(BotBase):
         logging.info('Successfully connected to the server.')
 
     def handle_message(self, content: Dict) -> Optional[Future]:
+        # content
+        # {
+        #     "type":"message",
+        #     "channel":"C06TXXXX",
+        #     "user":"U06TXXXXX",
+        #     "text":".bmw",
+        #     "ts":"1438477080.000004",
+        #     "team":"T06TXXXXX"
+        # }
         required_props = ('type', 'channel', 'user', 'text', 'ts')
         missing_props = [p for p in required_props if p not in content]
 
@@ -147,12 +196,29 @@ class Slack(BotBase):
                 content))
             return
 
-        # TODO Check command and return results
-        # Just returning the exact same text for now.
-        # self.send_message(content['channel'], content['text'])
-        return self.enqueue_sending_message(self.send_message,
-                                            content['channel'],
-                                            content['text'])
+        command = self.find_command(content['text'])
+        if command is None:
+            return
+
+        text = re.sub(r'{0}\s+'.format(command.name), '', content['text'])
+        try:
+            ret = command.execute(CommandMessage(original_text=content['text'],
+                                                 text=text,
+                                                 sender=content['user']))
+        except Exception as e:
+            logging.error('Error occurred. '
+                          'command: %s. input: %s. error: %s.' % (
+                              command.name, content['text'], e
+                          ))
+            return self.enqueue_sending_message(
+                self.send_message,
+                content['channel']
+                ('Something went wrong with "%s"' % content['text']))
+        else:
+            return self.enqueue_sending_message(
+                self.send_message,
+                content['channel'],
+                ret)
 
     def on_error(self, _: WebSocketApp, error) -> None:
         logging.error(error)
@@ -181,5 +247,6 @@ class Slack(BotBase):
         return self.message_id
 
     def stop(self) -> None:
-        # TODO
-        raise NotImplementedError('hold your horses')
+        super().stop()
+        logging.info('STOP SLACK INTEGRATION')
+        self.ws.close()
