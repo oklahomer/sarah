@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
 import types
+from apscheduler.triggers.interval import IntervalTrigger
 import pytest
 import sarah
 from sarah.slack import Slack, SlackClient, SarahSlackException
-from mock import patch
+from mock import patch, MagicMock, call
 
 
 class TestInit(object):
@@ -90,3 +92,54 @@ class TestInit(object):
                               return_value=True) as _mock_connect:
                 slack.connect()
                 assert _mock_connect.call_count == 1
+
+
+class TestSchedule(object):
+    def test_missing_config(self):
+        logging.warning = MagicMock()
+
+        slack = Slack(token='spam_ham_egg',
+                      plugins=(('sarah.plugins.bmw_quotes',),),
+                      max_workers=1)
+        slack.connect = lambda: True
+        slack.run()
+
+        assert logging.warning.call_count == 1
+        assert logging.warning.call_args == call(
+            'Missing configuration for schedule job. ' +
+            'sarah.plugins.bmw_quotes. Skipping.')
+
+        jobs = slack.scheduler.get_jobs()
+        assert len(jobs) == 0
+
+    def test_missing_channel_config(self):
+        logging.warning = MagicMock()
+
+        slack = Slack(token='spam_ham_egg',
+                      plugins=(('sarah.plugins.bmw_quotes', {}),),
+                      max_workers=1)
+        slack.connect = lambda: True
+        slack.run()
+
+        assert logging.warning.call_count == 1
+        assert logging.warning.call_args == call(
+            'Missing channels configuration for schedule job. ' +
+            'sarah.plugins.bmw_quotes. Skipping.')
+
+        jobs = slack.scheduler.get_jobs()
+        assert len(jobs) == 0
+
+    def test_add_schedule_job(self):
+        slack = Slack(
+            token='spam_ham_egg',
+            max_workers=1,
+            plugins=(('sarah.plugins.bmw_quotes', {'channels': 'U06TXXXXX'}),))
+        slack.connect = lambda: True
+        slack.run()
+
+        jobs = slack.scheduler.get_jobs()
+        assert len(jobs) == 1
+        assert jobs[0].id == 'sarah.plugins.bmw_quotes.bmw_quotes'
+        assert isinstance(jobs[0].trigger, IntervalTrigger)
+        assert jobs[0].trigger.interval_length == 300
+        assert isinstance(jobs[0].func, types.FunctionType)

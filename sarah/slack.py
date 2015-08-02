@@ -114,7 +114,7 @@ class Slack(BotBase):
     def add_schedule_job(self, command: Command) -> None:
         if 'channels' not in command.config:
             logging.warning(
-                'Missing channel configuration for schedule job. %s. '
+                'Missing channels configuration for schedule job. %s. '
                 'Skipping.' % command.module_name)
             return
 
