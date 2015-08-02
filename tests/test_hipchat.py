@@ -231,7 +231,8 @@ class TestMessage(object):
         assert msg.reply.call_count == 3
         assert msg.reply.call_args == call('1')
 
-        stash = vars(sarah.plugins.simple_counter).get('__stash', {})
+        stash = vars(sarah.plugins.simple_counter).get(
+            '__stash', {}).get('hipchat', {})
         assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
 
 
