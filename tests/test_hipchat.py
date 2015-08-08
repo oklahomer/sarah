@@ -2,8 +2,10 @@
 import concurrent
 from concurrent.futures import ALL_COMPLETED
 from time import sleep
-import pytest
 import logging
+import types
+
+import pytest
 from apscheduler.triggers.interval import IntervalTrigger
 from sleekxmpp import ClientXMPP
 from sleekxmpp.test import TestSocket
@@ -11,10 +13,10 @@ from sleekxmpp.stanza import Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.xmlstream import JID
 from mock import MagicMock, call, patch
-from sarah import CommandMessage
+
+from sarah import CommandMessage, UserContext
 from sarah.hipchat import HipChat, SarahHipChatException
 import sarah.plugins.simple_counter
-import types
 
 
 # noinspection PyProtectedMember
@@ -174,7 +176,8 @@ class TestMessage(object):
         h = HipChat(nick='Sarah',
                     jid='test@localhost',
                     password='password',
-                    plugins=(('sarah.plugins.simple_counter', {}),
+                    plugins=(('sarah.plugins.hello', {}),
+                             ('sarah.plugins.simple_counter', {}),
                              ('sarah.plugins.echo',)),
                     max_workers=4)
         h.client.connect = lambda: True
@@ -235,6 +238,32 @@ class TestMessage(object):
         stash = vars(sarah.plugins.simple_counter).get(
             '__stash', {}).get('hipchat', {})
         assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
+
+    def test_conversation(self, hipchat):
+        user_key = '123_homer@localhost/Oklahomer'
+
+        # Initial message
+        assert (hipchat.respond(user_key, '.hello') ==
+                "Hello. How are you feeling today?")
+
+        # Context is set
+        assert isinstance(hipchat.user_context_map.get(user_key), UserContext)
+
+        # Wrong formatted message results with help message
+        assert (hipchat.respond(user_key, "SomeBizarreText") ==
+                "Say Good or Bad, please.")
+
+        assert (hipchat.respond(user_key, "Bad") ==
+                "Are you sick?")
+
+        # Still in conversation
+        assert isinstance(hipchat.user_context_map.get(user_key), UserContext)
+
+        # The last yes/no question
+        assert hipchat.respond(user_key, "Yes")
+
+        # Context is removed
+        assert hipchat.user_context_map.get(user_key) is None
 
 
 # noinspection PyUnresolvedReferences

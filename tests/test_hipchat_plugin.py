@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
-from sarah import CommandMessage
+from sarah import CommandMessage, UserContext
 from sarah.plugins.echo import hipchat_echo
+from sarah.plugins.hello import hipchat_hello, hipchat_user_feeling_good, \
+    hipchat_user_feeling_bad
 from sarah.plugins.simple_counter import hipchat_count, hipchat_reset_count, \
     reset_count
 from sarah.plugins.bmw_quotes import hipchat_quote
@@ -74,3 +76,24 @@ class TestBMWQuotes(object):
                              sender='123_homer@localhost/Oklahomer')
         response = hipchat_quote(msg, {})
         assert (response in sarah.plugins.bmw_quotes.quotes) is True
+
+
+class TestHello(object):
+    def test__init(self):
+        msg = CommandMessage(original_text='.hello',
+                             text='',
+                             sender='spam@localhost/ham')
+        response = hipchat_hello(msg, {})
+        assert isinstance(response, UserContext) is True
+        assert response.message == "Hello. How are you feeling today?"
+        assert len(response.input_options) == 2
+        assert (response.input_options[0].next_step.__name__ ==
+                hipchat_user_feeling_good.__name__)
+        assert (response.input_options[1].next_step.__name__ ==
+                hipchat_user_feeling_bad.__name__)
+
+        assert (response.input_options[0].next_step("Good") ==
+                "Good to hear that.")
+
+        isinstance(response.input_options[1].next_step("Bad"),
+                   UserContext) is True
