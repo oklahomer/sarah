@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-from sarah import CommandMessage
-from sarah.plugins.bmw_quotes import slack_quote
-from sarah.plugins.echo import slack_echo
-from sarah.plugins.simple_counter import reset_count, slack_count, \
+from sarah.bot import CommandMessage
+from sarah.bot.plugins.bmw_quotes import slack_quote
+from sarah.bot.plugins.echo import slack_echo
+from sarah.bot.plugins.simple_counter import reset_count, slack_count, \
     slack_reset_count
-import sarah.plugins.bmw_quotes
+import sarah.bot.plugins.bmw_quotes
 
 
 class TestEcho(object):
@@ -72,4 +72,4 @@ class TestBMWQuotes(object):
                              text='',
                              sender='U06TXXXXX')
         response = slack_quote(msg, {})
-        assert (response in sarah.plugins.bmw_quotes.quotes) is True
+        assert (response in sarah.bot.plugins.bmw_quotes.quotes) is True

@@ -6,16 +6,121 @@ from functools import wraps
 import imp
 import importlib
 import logging
-from apscheduler.schedulers.background import BackgroundScheduler
-import sys
 import re
-from typing import Callable, Optional, Sequence
-from sarah import UserContext, Command, CommandMessage
+import sys
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from typing import Sequence, Optional, Callable, Union, Pattern, AnyStr
+
 from sarah.thread import ThreadExecutor
-from sarah.types import CommandFunction, PluginConfig, AnyFunction
+from sarah.types import PluginConfig, AnyFunction, CommandFunction, \
+    CommandConfig
 
 
-class BotBase(object, metaclass=abc.ABCMeta):
+class InputOption(object):
+    def __init__(self,
+                 pattern: Union[Pattern, AnyStr],
+                 next_step: Callable) -> None:
+        if isinstance(pattern, str):
+            pattern = re.compile(pattern)
+        self.__pattern = pattern
+        self.__next_step = next_step
+
+    @property
+    def pattern(self) -> Pattern:
+        return self.__pattern
+
+    @property
+    def next_step(self) -> Callable:
+        return self.__next_step
+
+    def match(self, msg: str) -> bool:
+        return self.pattern.match(msg)
+
+
+class UserContext(object):
+    def __init__(self,
+                 message: str,
+                 help_message: str,
+                 input_options: Sequence[InputOption]) -> None:
+        self.__message = message
+        self.__help_message = help_message
+        self.__input_options = input_options
+
+    def __str__(self):
+        return self.message
+
+    @property
+    def message(self) -> str:
+        return self.__message
+
+    @property
+    def help_message(self) -> str:
+        return self.__help_message
+
+    @property
+    def input_options(self) -> Sequence[InputOption]:
+        return self.__input_options
+
+
+class Command(object):
+    def __init__(self,
+                 name: str,
+                 function: CommandFunction,
+                 module_name: str,
+                 config: CommandConfig=None) -> None:
+        if not config:
+            config = {}
+        self.__name = name
+        self.__function = function
+        self.__module_name = module_name
+        self.__config = config
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def function(self):
+        return self.__function
+
+    @property
+    def module_name(self):
+        return self.__module_name
+
+    @property
+    def config(self):
+        return self.__config
+
+    def execute(self, *args) -> Union[UserContext, str]:
+        args = list(args)
+        args.append(self.config)
+        return self.function(*args)
+
+    def set_config(self, config: CommandConfig) -> None:
+        self.__config = config
+
+
+class CommandMessage:
+    def __init__(self, original_text: str, text: str, sender: str):
+        self.__original_text = original_text
+        self.__text = text
+        self.__sender = sender
+
+    @property
+    def original_text(self):
+        return self.__original_text
+
+    @property
+    def text(self):
+        return self.__text
+
+    @property
+    def sender(self):
+        return self.__sender
+
+
+class Base(object, metaclass=abc.ABCMeta):
     __commands = {}
     __schedules = {}
 
@@ -264,8 +369,4 @@ class BotBase(object, metaclass=abc.ABCMeta):
             {name: Command(name, func, module_name)})
 
 
-class SarahException(Exception):
-    pass
-
-
-concurrent = BotBase.concurrent
+concurrent = Base.concurrent

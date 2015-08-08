@@ -14,9 +14,9 @@ from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.xmlstream import JID
 from mock import MagicMock, call, patch
 
-from sarah import CommandMessage, UserContext
-from sarah.hipchat import HipChat, SarahHipChatException
-import sarah.plugins.simple_counter
+from sarah.bot import CommandMessage, UserContext
+from sarah.bot.hipchat import HipChat, SarahHipChatException
+import sarah.bot.plugins.simple_counter
 
 
 # noinspection PyProtectedMember
@@ -34,7 +34,7 @@ class MockXMPP(ClientXMPP):
         self.use_message_ids = False
 
 
-sarah.hipchat.ClientXMPP = MockXMPP
+sarah.bot.hipchat.ClientXMPP = MockXMPP
 
 
 # noinspection PyUnresolvedReferences
@@ -44,8 +44,8 @@ class TestInit(object):
                           jid='test@localhost',
                           password='password',
                           rooms=['123_homer@localhost'],
-                          plugins=(('sarah.plugins.simple_counter', {}),
-                                   ('sarah.plugins.echo', {})),
+                          plugins=(('sarah.bot.plugins.simple_counter', {}),
+                                   ('sarah.bot.plugins.echo', {})),
                           proxy={'host': 'localhost',
                                  'port': 1234,
                                  'username': 'homers',
@@ -69,8 +69,8 @@ class TestInit(object):
         hipchat = HipChat(nick='Sarah',
                           jid='test@localhost',
                           password='password',
-                          plugins=(('sarah.plugins.simple_counter', {}),
-                                   ('sarah.plugins.echo', {})),
+                          plugins=(('sarah.bot.plugins.simple_counter', {}),
+                                   ('sarah.bot.plugins.echo', {})),
                           proxy={'host': 'localhost',
                                  'port': 1234,
                                  'username': 'homers',
@@ -85,15 +85,15 @@ class TestInit(object):
         commands = list(hipchat.commands.values())
 
         assert commands[0].name == '.count'
-        assert commands[0].module_name == 'sarah.plugins.simple_counter'
+        assert commands[0].module_name == 'sarah.bot.plugins.simple_counter'
         assert isinstance(commands[0].function, types.FunctionType) is True
 
         assert commands[1].name == '.reset_count'
-        assert commands[1].module_name == 'sarah.plugins.simple_counter'
+        assert commands[1].module_name == 'sarah.bot.plugins.simple_counter'
         assert isinstance(commands[1].function, types.FunctionType) is True
 
         assert commands[2].name == '.echo'
-        assert commands[2].module_name == 'sarah.plugins.echo'
+        assert commands[2].module_name == 'sarah.bot.plugins.echo'
         assert isinstance(commands[2].function, types.FunctionType) is True
 
     def test_non_existing_plugin(self):
@@ -145,8 +145,9 @@ class TestFindCommand(object):
         h = HipChat(nick='Sarah',
                     jid='test@localhost',
                     password='password',
-                    plugins=(('sarah.plugins.simple_counter', {'spam': 'ham'}),
-                             ('sarah.plugins.echo',)))
+                    plugins=(('sarah.bot.plugins.simple_counter',
+                              {'spam': 'ham'}),
+                             ('sarah.bot.plugins.echo',)))
         h.load_plugins(h.plugins)
         return h
 
@@ -158,14 +159,14 @@ class TestFindCommand(object):
         command = hipchat.find_command('.echo spam ham')
         assert command.config == {}
         assert command.name == '.echo'
-        assert command.module_name == 'sarah.plugins.echo'
+        assert command.module_name == 'sarah.bot.plugins.echo'
         assert isinstance(command.function, types.FunctionType) is True
 
     def test_count(self, hipchat):
         command = hipchat.find_command('.count spam')
         assert command.config == {'spam': 'ham'}
         assert command.name == '.count'
-        assert command.module_name == 'sarah.plugins.simple_counter'
+        assert command.module_name == 'sarah.bot.plugins.simple_counter'
         assert isinstance(command.function, types.FunctionType) is True
 
 
@@ -176,9 +177,9 @@ class TestMessage(object):
         h = HipChat(nick='Sarah',
                     jid='test@localhost',
                     password='password',
-                    plugins=(('sarah.plugins.hello', {}),
-                             ('sarah.plugins.simple_counter', {}),
-                             ('sarah.plugins.echo',)),
+                    plugins=(('sarah.bot.plugins.hello', {}),
+                             ('sarah.bot.plugins.simple_counter', {}),
+                             ('sarah.bot.plugins.echo',)),
                     max_workers=4)
         h.client.connect = lambda: True
         h.client.process = lambda *args, **kwargs: True
@@ -235,7 +236,7 @@ class TestMessage(object):
         assert msg.reply.call_count == 3
         assert msg.reply.call_args == call('1')
 
-        stash = vars(sarah.plugins.simple_counter).get(
+        stash = vars(sarah.bot.plugins.simple_counter).get(
             '__stash', {}).get('hipchat', {})
         assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
 
@@ -375,14 +376,14 @@ class TestSchedule(object):
         hipchat = HipChat(nick='Sarah',
                           jid='test@localhost',
                           password='password',
-                          plugins=(('sarah.plugins.bmw_quotes',),))
+                          plugins=(('sarah.bot.plugins.bmw_quotes',),))
         hipchat.connect = lambda: True
         hipchat.run()
 
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
             'Missing configuration for schedule job. '
-            'sarah.plugins.bmw_quotes. Skipping.')
+            'sarah.bot.plugins.bmw_quotes. Skipping.')
 
     def test_missing_rooms_config(self):
         logging.warning = MagicMock()
@@ -390,7 +391,7 @@ class TestSchedule(object):
         hipchat = HipChat(nick='Sarah',
                           jid='test@localhost',
                           password='password',
-                          plugins=(('sarah.plugins.bmw_quotes', {}),))
+                          plugins=(('sarah.bot.plugins.bmw_quotes', {}),))
         hipchat.connect = lambda: True
         hipchat.load_plugins(hipchat.plugins)
         hipchat.run()
@@ -398,20 +399,20 @@ class TestSchedule(object):
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
             'Missing rooms configuration for schedule job. '
-            'sarah.plugins.bmw_quotes. Skipping.')
+            'sarah.bot.plugins.bmw_quotes. Skipping.')
 
     def test_add_schedule_job(self):
         hipchat = HipChat(nick='Sarah',
                           jid='test@localhost',
                           password='password',
-                          plugins=(('sarah.plugins.bmw_quotes',
+                          plugins=(('sarah.bot.plugins.bmw_quotes',
                                     {'rooms': ('123_homer@localhost',)}),))
         hipchat.connect = lambda: True
         hipchat.run()
 
         jobs = hipchat.scheduler.get_jobs()
         assert len(jobs) == 1
-        assert jobs[0].id == 'sarah.plugins.bmw_quotes.bmw_quotes'
+        assert jobs[0].id == 'sarah.bot.plugins.bmw_quotes.bmw_quotes'
         assert isinstance(jobs[0].trigger, IntervalTrigger) is True
         assert jobs[0].trigger.interval_length == 300
         assert isinstance(jobs[0].func, types.FunctionType) is True

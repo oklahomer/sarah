@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-from sarah import CommandMessage, UserContext
-from sarah.plugins.echo import hipchat_echo
-from sarah.plugins.hello import hipchat_hello, hipchat_user_feeling_good, \
+from sarah.bot import UserContext, CommandMessage
+from sarah.bot.plugins.echo import hipchat_echo
+from sarah.bot.plugins.hello import hipchat_hello, hipchat_user_feeling_good, \
     hipchat_user_feeling_bad
-from sarah.plugins.simple_counter import hipchat_count, hipchat_reset_count, \
-    reset_count
-from sarah.plugins.bmw_quotes import hipchat_quote
-import sarah.plugins.bmw_quotes
+from sarah.bot.plugins.simple_counter import hipchat_count, \
+    hipchat_reset_count, reset_count
+from sarah.bot.plugins.bmw_quotes import hipchat_quote
+import sarah.bot.plugins.bmw_quotes
 
 
 class TestEcho(object):
@@ -75,7 +75,7 @@ class TestBMWQuotes(object):
                              text='',
                              sender='123_homer@localhost/Oklahomer')
         response = hipchat_quote(msg, {})
-        assert (response in sarah.plugins.bmw_quotes.quotes) is True
+        assert (response in sarah.bot.plugins.bmw_quotes.quotes) is True
 
 
 class TestHello(object):

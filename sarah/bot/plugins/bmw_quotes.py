@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import random
+
 from typing import Dict
-from sarah import CommandMessage
-from sarah.hipchat import HipChat
-from sarah.slack import Slack
+from sarah.bot import CommandMessage
+
+from sarah.bot.hipchat import HipChat
+from sarah.bot.slack import Slack
+
 
 # http://www.imdb.com/title/tt0105958/quotes
 quotes = (("Eric: So I said to myself, 'Kyle,'\n"
