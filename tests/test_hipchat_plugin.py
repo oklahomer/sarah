@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from sarah.hipchat import CommandMessage
+from sarah import CommandMessage
 from sarah.plugins.echo import hipchat_echo
 from sarah.plugins.simple_counter import hipchat_count, hipchat_reset_count, \
     reset_count

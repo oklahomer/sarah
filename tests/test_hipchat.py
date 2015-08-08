@@ -11,7 +11,8 @@ from sleekxmpp.stanza import Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.xmlstream import JID
 from mock import MagicMock, call, patch
-from sarah.hipchat import HipChat, SarahHipChatException, CommandMessage
+from sarah import CommandMessage
+from sarah.hipchat import HipChat, SarahHipChatException
 import sarah.plugins.simple_counter
 import types
 

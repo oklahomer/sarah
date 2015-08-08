@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from concurrent.futures import Future
 import logging
-import re
 from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from typing import Dict, Optional, Sequence
@@ -9,28 +8,7 @@ from sarah.bot_base import BotBase, Command, concurrent, SarahException
 from sarah.types import PluginConfig
 
 
-class CommandMessage:
-    def __init__(self, original_text: str, text: str, sender: str):
-        self.__original_text = original_text
-        self.__text = text
-        self.__sender = sender
-
-    @property
-    def original_text(self):
-        return self.__original_text
-
-    @property
-    def text(self):
-        return self.__text
-
-    @property
-    def sender(self):
-        return self.__sender
-
-
 class HipChat(BotBase):
-    CommandMessage = CommandMessage
-
     def __init__(self,
                  plugins: Sequence[PluginConfig]=None,
                  jid: str='',
@@ -161,23 +139,8 @@ class HipChat(BotBase):
             if my_nick == sender_nick:
                 return
 
-        command = self.find_command(msg['body'])
-        if command is None:
-            return
-
-        text = re.sub(r'{0}\s+'.format(command.name), '', msg['body'])
-        try:
-            ret = command.execute(CommandMessage(original_text=msg['body'],
-                                                 text=text,
-                                                 sender=msg['from']))
-        except Exception as e:
-            logging.error('Error occurred. '
-                          'command: %s. input: %s. error: %s.' % (
-                              command.name, msg['body'], e
-                          ))
-            return self.enqueue_sending_message(lambda: msg.reply(
-                'Something went wrong with "%s"' % msg['body']).send())
-        else:
+        ret = self.respond(msg['from'], msg['body'])
+        if ret:
             return self.enqueue_sending_message(lambda: msg.reply(ret).send())
 
     def stop(self) -> None:

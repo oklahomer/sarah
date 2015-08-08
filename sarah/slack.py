@@ -3,31 +3,11 @@
 from concurrent.futures import Future
 import json
 import logging
-import re
 from typing import Optional, Dict, Sequence
 import requests
 from websocket import WebSocketApp
 from sarah.bot_base import BotBase, Command, concurrent, SarahException
 from sarah.types import PluginConfig
-
-
-class CommandMessage:
-    def __init__(self, original_text: str, text: str, sender: str):
-        self.__original_text = original_text
-        self.__text = text
-        self.__sender = sender
-
-    @property
-    def original_text(self):
-        return self.__original_text
-
-    @property
-    def text(self):
-        return self.__text
-
-    @property
-    def sender(self):
-        return self.__sender
 
 
 class SlackClient(object):
@@ -76,8 +56,6 @@ class SlackClient(object):
 
 
 class Slack(BotBase):
-    CommandMessage = CommandMessage
-
     def __init__(self,
                  token: str='',
                  plugins: Sequence[PluginConfig]=None,
@@ -123,7 +101,7 @@ class Slack(BotBase):
             for channel in command.config['channels']:
                 self.enqueue_sending_message(self.send_message,
                                              channel,
-                                             ret)
+                                             str(ret))
 
         job_id = '%s.%s' % (command.module_name, command.name)
         logging.info("Add schedule %s" % id)
@@ -206,29 +184,11 @@ class Slack(BotBase):
                 content))
             return
 
-        command = self.find_command(content['text'])
-        if command is None:
-            return
-
-        text = re.sub(r'{0}\s+'.format(command.name), '', content['text'])
-        try:
-            ret = command.execute(CommandMessage(original_text=content['text'],
-                                                 text=text,
-                                                 sender=content['user']))
-        except Exception as e:
-            logging.error('Error occurred. '
-                          'command: %s. input: %s. error: %s.' % (
-                              command.name, content['text'], e
-                          ))
-            return self.enqueue_sending_message(
-                self.send_message,
-                content['channel']
-                ('Something went wrong with "%s"' % content['text']))
-        else:
-            return self.enqueue_sending_message(
-                self.send_message,
-                content['channel'],
-                ret)
+        ret = self.respond(content['user'], content['text'])
+        if ret:
+            return self.enqueue_sending_message(self.send_message,
+                                                content['channel'],
+                                                ret)
 
     def on_error(self, _: WebSocketApp, error) -> None:
         logging.error(error)

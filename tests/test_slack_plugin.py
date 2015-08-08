@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
+from sarah import CommandMessage
 from sarah.plugins.bmw_quotes import slack_quote
 from sarah.plugins.echo import slack_echo
 from sarah.plugins.simple_counter import reset_count, slack_count, \
     slack_reset_count
-from sarah.slack import CommandMessage
 import sarah.plugins.bmw_quotes
 
 
