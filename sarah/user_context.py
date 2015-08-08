@@ -48,6 +48,3 @@ class UserContext(object):
     @property
     def input_options(self) -> Sequence[InputOption]:
         return self.__input_options
-
-    def receive_input(self):
-        return
