@@ -110,28 +110,37 @@ class BotBase(object, metaclass=abc.ABCMeta):
             logging.info('Loaded plugin. %s' % module_name)
 
     def respond(self, user_key, user_input) -> Optional[str]:
-        user_context = self.user_context_map.pop(user_key, None)
+        user_context = self.user_context_map.get(user_key, None)
 
         ret = None
         error = []
         if user_context:
-            # If user is in the middle of conversation, check if we can proceed
+            # User is in the middle of conversation
+
+            if user_input == '.abort':
+                # If user wishes, abort the current conversation, and remove
+                # context data.
+                self.user_context_map.pop(user_key)
+                return 'Abort current conversation'
+
+            # Check if we can proceed conversation. If user input is irrelevant
+            # return help message.
             option = next(
                 (o for o in user_context.input_options if o.match(user_input)),
                 None)
-
             if option is None:
-                # User is not responding in the way we are expecting.
-                self.user_context_map[user_key] = user_context
                 return user_context.help_message
 
             try:
                 ret = option.next_step(CommandMessage(original_text=user_input,
                                                       text=user_input,
                                                       sender=user_key))
+
+                # Only when command is successfully executed, remove current
+                # context. To forcefully abort the conversation, use ".abort"
+                # command
+                self.user_context_map.pop(user_key)
             except Exception as e:
-                # Error occurred, but not reassigning the user context
-                # because user may get stuck to this failing context.
                 error.append((option.next_step.__name__, str(e)))
 
         else:
