@@ -8,7 +8,7 @@ from typing import Dict, Optional, Sequence
 
 from sarah.exceptions import SarahException
 from sarah.bot import Base, concurrent, Command
-from sarah.types import PluginConfig
+from sarah.bot.types import PluginConfig
 
 
 class HipChat(Base):

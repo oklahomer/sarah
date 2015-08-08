@@ -13,7 +13,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Sequence, Optional, Callable, Union, Pattern, AnyStr
 
 from sarah.thread import ThreadExecutor
-from sarah.types import PluginConfig, AnyFunction, CommandFunction, \
+from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction, \
     CommandConfig
 
 

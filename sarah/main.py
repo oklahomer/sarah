@@ -10,7 +10,7 @@ import yaml
 from sarah.bot.hipchat import HipChat
 from sarah.bot.slack import Slack
 from sarah.exceptions import SarahException
-from sarah.types import Path
+from sarah.bot.types import Path
 
 
 class Sarah(object):
