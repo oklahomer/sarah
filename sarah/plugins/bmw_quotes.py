@@ -2,6 +2,7 @@
 
 import random
 from typing import Dict
+from sarah import CommandMessage
 from sarah.hipchat import HipChat
 from sarah.slack import Slack
 
@@ -32,7 +33,7 @@ quotes = (("Eric: So I said to myself, 'Kyle,'\n"
 
 # noinspection PyUnusedLocal
 @HipChat.command('.bmw')
-def hipchat_quote(msg: HipChat.CommandMessage, config: Dict) -> str:
+def hipchat_quote(msg: CommandMessage, config: Dict) -> str:
     return random.choice(quotes)
 
 
@@ -44,7 +45,7 @@ def hipchat_scheduled_quote(config: Dict) -> str:
 
 # noinspection PyUnusedLocal
 @Slack.command('.bmw')
-def slack_quote(msg: Slack.CommandMessage, config: Dict) -> str:
+def slack_quote(msg: CommandMessage, config: Dict) -> str:
     return random.choice(quotes)
 
 

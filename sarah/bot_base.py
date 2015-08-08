@@ -8,48 +8,11 @@ import importlib
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
+import re
 from typing import Callable, Optional, Sequence
+from sarah import UserContext, Command, CommandMessage
 from sarah.thread import ThreadExecutor
-from sarah.types import CommandFunction, PluginConfig, AnyFunction, \
-    CommandConfig
-
-
-class Command(object):
-    def __init__(self,
-                 name: str,
-                 function: CommandFunction,
-                 module_name: str,
-                 config: CommandConfig=None) -> None:
-        if not config:
-            config = {}
-        self.__name = name
-        self.__function = function
-        self.__module_name = module_name
-        self.__config = config
-
-    @property
-    def name(self):
-        return self.__name
-
-    @property
-    def function(self):
-        return self.__function
-
-    @property
-    def module_name(self):
-        return self.__module_name
-
-    @property
-    def config(self):
-        return self.__config
-
-    def execute(self, *args) -> str:
-        args = list(args)
-        args.append(self.__config)
-        return self.__function(*args)
-
-    def set_config(self, config: CommandConfig) -> None:
-        self.__config = config
+from sarah.types import CommandFunction, PluginConfig, AnyFunction
 
 
 class BotBase(object, metaclass=abc.ABCMeta):
@@ -62,6 +25,7 @@ class BotBase(object, metaclass=abc.ABCMeta):
         self.plugins = plugins
         self.max_workers = max_workers
         self.scheduler = BackgroundScheduler()
+        self.user_context_map = {}
 
         # To be set on run()
         self.worker = None
@@ -144,6 +108,76 @@ class BotBase(object, metaclass=abc.ABCMeta):
                                                                   e))
         else:
             logging.info('Loaded plugin. %s' % module_name)
+
+    def respond(self, user_key, user_input) -> Optional[str]:
+        user_context = self.user_context_map.get(user_key, None)
+
+        ret = None
+        error = []
+        if user_context:
+            # User is in the middle of conversation
+
+            if user_input == '.abort':
+                # If user wishes, abort the current conversation, and remove
+                # context data.
+                self.user_context_map.pop(user_key)
+                return 'Abort current conversation'
+
+            # Check if we can proceed conversation. If user input is irrelevant
+            # return help message.
+            option = next(
+                (o for o in user_context.input_options if o.match(user_input)),
+                None)
+            if option is None:
+                return user_context.help_message
+
+            try:
+                ret = option.next_step(CommandMessage(original_text=user_input,
+                                                      text=user_input,
+                                                      sender=user_key))
+
+                # Only when command is successfully executed, remove current
+                # context. To forcefully abort the conversation, use ".abort"
+                # command
+                self.user_context_map.pop(user_key)
+            except Exception as e:
+                error.append((option.next_step.__name__, str(e)))
+
+        else:
+            # If user is not in the middle of conversation, see if the input
+            # text contains command.
+            command = self.find_command(user_input)
+            if command is None:
+                # If it doesn't match any command, leave it.
+                return
+
+            try:
+                text = re.sub(r'{0}\s+'.format(command.name), '', user_input)
+                ret = command.execute(CommandMessage(original_text=user_input,
+                                                     text=text,
+                                                     sender=user_key))
+            except Exception as e:
+                error.append((command.name, str(e)))
+
+        if error:
+            logging.error('Error occurred. '
+                          'command: %s. input: %s. error: %s.' % (
+                              error[0][0], user_input, error[0][1]
+                          ))
+            return 'Something went wrong with "%s"' % user_input
+
+        elif not ret:
+            logging.error('command should return UserContext or text'
+                          'to let user know the result or next move')
+            return 'Something went wrong with "%s"' % user_input
+
+        elif isinstance(ret, UserContext):
+            self.user_context_map[user_key] = ret
+            return ret.message
+
+        else:
+            # String
+            return ret
 
     def find_command(self, text: str) -> Optional[Command]:
         # Find the first registered command that matches the input text

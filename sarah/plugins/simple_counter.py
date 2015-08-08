@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import Dict
+from sarah import CommandMessage
 
 from sarah.hipchat import HipChat
 from sarah.slack import Slack
@@ -25,25 +26,25 @@ def reset_count(bot_type: str) -> None:
 
 # noinspection PyUnusedLocal
 @HipChat.command('.count')
-def hipchat_count(msg: HipChat.CommandMessage, config: Dict) -> str:
+def hipchat_count(msg: CommandMessage, config: Dict) -> str:
     return str(count('hipchat', msg.sender, msg.text))
 
 
 # noinspection PyUnusedLocal
 @HipChat.command('.reset_count')
-def hipchat_reset_count(msg: HipChat.CommandMessage, config: Dict) -> str:
+def hipchat_reset_count(msg: CommandMessage, config: Dict) -> str:
     reset_count('hipchat')
     return 'restart counting'
 
 
 # noinspection PyUnusedLocal
 @Slack.command('.count')
-def slack_count(msg: HipChat.CommandMessage, config: Dict) -> str:
+def slack_count(msg: CommandMessage, config: Dict) -> str:
     return str(count('slack', msg.sender, msg.text))
 
 
 # noinspection PyUnusedLocal
 @Slack.command('.reset_count')
-def slack_reset_count(msg: HipChat.CommandMessage, config: Dict) -> str:
+def slack_reset_count(msg: CommandMessage, config: Dict) -> str:
     reset_count('slack')
     return 'restart counting'
