@@ -9,7 +9,8 @@ import requests
 from websocket import WebSocketApp
 
 from sarah.exceptions import SarahException
-from sarah.bot import Base, concurrent, Command
+from sarah.bot import Base, concurrent
+from sarah.bot.values import Command
 from sarah.bot.types import PluginConfig
 
 

@@ -14,7 +14,7 @@ from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.xmlstream import JID
 from mock import MagicMock, call, patch
 
-from sarah.bot import CommandMessage, UserContext
+from sarah.bot.values import UserContext, CommandMessage
 from sarah.bot.hipchat import HipChat, SarahHipChatException
 import sarah.bot.plugins.simple_counter
 

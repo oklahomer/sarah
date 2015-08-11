@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from sarah.bot import CommandMessage
+from sarah.bot.values import CommandMessage
 from sarah.bot.plugins.bmw_quotes import slack_quote
 from sarah.bot.plugins.echo import slack_echo
 from sarah.bot.plugins.simple_counter import reset_count, slack_count, \

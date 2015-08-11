@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from sarah.bot import UserContext, CommandMessage
+from sarah.bot.values import UserContext, CommandMessage
 from sarah.bot.plugins.echo import hipchat_echo
 from sarah.bot.plugins.hello import hipchat_hello, hipchat_user_feeling_good, \
     hipchat_user_feeling_bad

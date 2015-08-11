@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import Dict
-from sarah.bot import CommandMessage, InputOption, UserContext
+from sarah.bot.values import CommandMessage, UserContext, InputOption
 
 from sarah.bot.hipchat import HipChat
 
