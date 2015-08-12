@@ -6,16 +6,16 @@ from functools import wraps
 import imp
 import importlib
 import logging
-from apscheduler.schedulers.background import BackgroundScheduler
-import sys
 import re
-from typing import Callable, Optional, Sequence
-from sarah import UserContext, Command, CommandMessage
+import sys
+from apscheduler.schedulers.background import BackgroundScheduler
+from typing import Sequence, Optional, Callable
+from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction
+from sarah.bot.values import Command, CommandMessage, UserContext
 from sarah.thread import ThreadExecutor
-from sarah.types import CommandFunction, PluginConfig, AnyFunction
 
 
-class BotBase(object, metaclass=abc.ABCMeta):
+class Base(object, metaclass=abc.ABCMeta):
     __commands = {}
     __schedules = {}
 
@@ -262,10 +262,3 @@ class BotBase(object, metaclass=abc.ABCMeta):
         # The order stays.
         cls.__commands[cls.__name__].update(
             {name: Command(name, func, module_name)})
-
-
-class SarahException(Exception):
-    pass
-
-
-concurrent = BotBase.concurrent

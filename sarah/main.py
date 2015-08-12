@@ -3,11 +3,14 @@
 import logging
 from multiprocessing import Process
 import os
+
 from typing import Dict, Sequence
 import yaml
-from sarah.hipchat import HipChat
-from sarah.slack import Slack
-from sarah.types import Path
+
+from sarah.bot.hipchat import HipChat
+from sarah.bot.slack import Slack
+from sarah.exceptions import SarahException
+from sarah.bot.types import Path
 
 
 class Sarah(object):
@@ -49,7 +52,3 @@ class Sarah(object):
                                      path)
 
         return config
-
-
-class SarahException(Exception):
-    pass

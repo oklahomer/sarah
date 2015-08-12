@@ -1,0 +1,101 @@
+# -*- coding: utf-8 -*-
+import re
+from typing import Union, Pattern, AnyStr, Callable, Sequence
+from sarah import ValueObject
+from sarah.bot.types import CommandFunction, CommandConfig
+
+
+class InputOption(ValueObject):
+    def __init__(self,
+                 pattern: Union[Pattern, AnyStr],
+                 next_step: Callable) -> None:
+
+        if isinstance(pattern, str):
+            self['pattern'] = re.compile(pattern)
+
+    @property
+    def pattern(self) -> Pattern:
+        return self['pattern']
+
+    @property
+    def next_step(self) -> Callable:
+        return self['next_step']
+
+    def match(self, msg: str) -> bool:
+        return self.pattern.match(msg)
+
+
+class UserContext(ValueObject):
+    def __init__(self,
+                 message: str,
+                 help_message: str,
+                 input_options: Sequence[InputOption]) -> None:
+        pass
+
+    def __str__(self):
+        return self.message
+
+    @property
+    def message(self) -> str:
+        return self['message']
+
+    @property
+    def help_message(self) -> str:
+        return self['help_message']
+
+    @property
+    def input_options(self) -> Sequence[InputOption]:
+        return self['input_options']
+
+
+class CommandMessage(ValueObject):
+    def __init__(self, original_text: str, text: str, sender: str):
+        pass
+
+    @property
+    def original_text(self):
+        return self['original_text']
+
+    @property
+    def text(self):
+        return self['text']
+
+    @property
+    def sender(self):
+        return self['sender']
+
+
+class Command(ValueObject):
+    def __init__(self,
+                 name: str,
+                 function: CommandFunction,
+                 module_name: str,
+                 config: CommandConfig=None) -> None:
+
+        config = config if config else dict()
+        self['config'] = config
+
+    @property
+    def name(self):
+        return self['name']
+
+    @property
+    def function(self):
+        return self['function']
+
+    @property
+    def module_name(self):
+        return self['module_name']
+
+    @property
+    def config(self):
+        return self['config']
+
+    def execute(self, *args) -> Union[UserContext, str]:
+        args = list(args)
+        args.append(self.config)
+        return self.function(*args)
+
+    def set_config(self, config: CommandConfig) -> None:
+        # FIXME This should be removed in favor of VO's immutability.
+        self['config'] = config

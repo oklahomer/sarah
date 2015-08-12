@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
 from concurrent.futures import Future
 import logging
+
 from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from typing import Dict, Optional, Sequence
-from sarah.bot_base import BotBase, Command, concurrent, SarahException
-from sarah.types import PluginConfig
+
+from sarah.exceptions import SarahException
+from sarah.bot import Base, concurrent
+from sarah.bot.values import Command
+from sarah.bot.types import PluginConfig
 
 
-class HipChat(BotBase):
+class HipChat(Base):
     def __init__(self,
                  plugins: Sequence[PluginConfig]=None,
                  jid: str='',

@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import logging
 import types
+
 from apscheduler.triggers.interval import IntervalTrigger
+
 import pytest
-import sarah
-from sarah.slack import Slack, SlackClient, SarahSlackException
 from mock import patch, MagicMock, call
+
+import sarah
+from sarah.bot.slack import Slack, SlackClient, SarahSlackException
 
 
 class TestInit(object):
@@ -21,8 +24,8 @@ class TestInit(object):
 
     def test_load_plugins(self):
         slack = Slack(token='spam_ham_egg',
-                      plugins=(('sarah.plugins.simple_counter', {}),
-                               ('sarah.plugins.echo', {})),
+                      plugins=(('sarah.bot.plugins.simple_counter', {}),
+                               ('sarah.bot.plugins.echo', {})),
                       max_workers=1)
         slack.load_plugins(slack.plugins)
 
@@ -33,15 +36,15 @@ class TestInit(object):
         commands = list(slack.commands.values())
 
         assert commands[0].name == '.count'
-        assert commands[0].module_name == 'sarah.plugins.simple_counter'
+        assert commands[0].module_name == 'sarah.bot.plugins.simple_counter'
         assert isinstance(commands[0].function, types.FunctionType) is True
 
         assert commands[1].name == '.reset_count'
-        assert commands[1].module_name == 'sarah.plugins.simple_counter'
+        assert commands[1].module_name == 'sarah.bot.plugins.simple_counter'
         assert isinstance(commands[1].function, types.FunctionType) is True
 
         assert commands[2].name == '.echo'
-        assert commands[2].module_name == 'sarah.plugins.echo'
+        assert commands[2].module_name == 'sarah.bot.plugins.echo'
         assert isinstance(commands[2].function, types.FunctionType) is True
 
     def test_non_existing_plugin(self):
@@ -87,7 +90,7 @@ class TestInit(object):
         with patch.object(slack.client,
                           'get',
                           return_value={'url': 'ws://localhost:80/'}):
-            with patch.object(sarah.slack.WebSocketApp,
+            with patch.object(sarah.bot.slack.WebSocketApp,
                               'run_forever',
                               return_value=True) as _mock_connect:
                 slack.connect()
@@ -99,7 +102,7 @@ class TestSchedule(object):
         logging.warning = MagicMock()
 
         slack = Slack(token='spam_ham_egg',
-                      plugins=(('sarah.plugins.bmw_quotes',),),
+                      plugins=(('sarah.bot.plugins.bmw_quotes',),),
                       max_workers=1)
         slack.connect = lambda: True
         slack.run()
@@ -107,7 +110,7 @@ class TestSchedule(object):
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
             'Missing configuration for schedule job. ' +
-            'sarah.plugins.bmw_quotes. Skipping.')
+            'sarah.bot.plugins.bmw_quotes. Skipping.')
 
         jobs = slack.scheduler.get_jobs()
         assert len(jobs) == 0
@@ -116,7 +119,7 @@ class TestSchedule(object):
         logging.warning = MagicMock()
 
         slack = Slack(token='spam_ham_egg',
-                      plugins=(('sarah.plugins.bmw_quotes', {}),),
+                      plugins=(('sarah.bot.plugins.bmw_quotes', {}),),
                       max_workers=1)
         slack.connect = lambda: True
         slack.run()
@@ -124,7 +127,7 @@ class TestSchedule(object):
         assert logging.warning.call_count == 1
         assert logging.warning.call_args == call(
             'Missing channels configuration for schedule job. ' +
-            'sarah.plugins.bmw_quotes. Skipping.')
+            'sarah.bot.plugins.bmw_quotes. Skipping.')
 
         jobs = slack.scheduler.get_jobs()
         assert len(jobs) == 0
@@ -133,13 +136,14 @@ class TestSchedule(object):
         slack = Slack(
             token='spam_ham_egg',
             max_workers=1,
-            plugins=(('sarah.plugins.bmw_quotes', {'channels': 'U06TXXXXX'}),))
+            plugins=(('sarah.bot.plugins.bmw_quotes',
+                      {'channels': 'U06TXXXXX'}),))
         slack.connect = lambda: True
         slack.run()
 
         jobs = slack.scheduler.get_jobs()
         assert len(jobs) == 1
-        assert jobs[0].id == 'sarah.plugins.bmw_quotes.bmw_quotes'
+        assert jobs[0].id == 'sarah.bot.plugins.bmw_quotes.bmw_quotes'
         assert isinstance(jobs[0].trigger, IntervalTrigger)
         assert jobs[0].trigger.interval_length == 300
         assert isinstance(jobs[0].func, types.FunctionType)

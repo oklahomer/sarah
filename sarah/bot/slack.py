@@ -3,11 +3,15 @@
 from concurrent.futures import Future
 import json
 import logging
+
 from typing import Optional, Dict, Sequence
 import requests
 from websocket import WebSocketApp
-from sarah.bot_base import BotBase, Command, concurrent, SarahException
-from sarah.types import PluginConfig
+
+from sarah.exceptions import SarahException
+from sarah.bot import Base, concurrent
+from sarah.bot.values import Command
+from sarah.bot.types import PluginConfig
 
 
 class SlackClient(object):
@@ -55,7 +59,7 @@ class SlackClient(object):
         return json.loads(response.content.decode())
 
 
-class Slack(BotBase):
+class Slack(Base):
     def __init__(self,
                  token: str='',
                  plugins: Sequence[PluginConfig]=None,

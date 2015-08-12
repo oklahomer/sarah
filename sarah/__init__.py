@@ -1,9 +1,6 @@
-from sarah import user_context, command
+# -*- coding: utf-8 -*-
+import sarah.value_object
 
 VERSION = "0.0.1"
 
-UserContext = user_context.UserContext
-InputOption = user_context.InputOption
-
-Command = command.Command
-CommandMessage = command.CommandMessage
+ValueObject = sarah.value_object.ValueObject

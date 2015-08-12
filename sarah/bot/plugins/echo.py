@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 from typing import Dict
-from sarah import CommandMessage
-
-from sarah.hipchat import HipChat
-from sarah.slack import Slack
+from sarah.bot.values import CommandMessage
+from sarah.bot.hipchat import HipChat
+from sarah.bot.slack import Slack
 
 
 # noinspection PyUnusedLocal
