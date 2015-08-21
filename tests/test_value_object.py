@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from assertpy import assert_that
 import pytest
 from typing import Union, AnyStr, Pattern
 from sarah import ValueObject
@@ -13,15 +14,16 @@ class TestInit(object):
     obj1 = MyValue(key1="Foo",
                    key2="ham",
                    key3={'123': "spam", 'ham': 456})
+
+    assert_that(obj1["key1"]).is_equal_to("Foo")
+    assert_that(obj1["key2"]).is_equal_to("ham")
+    assert_that(obj1["key3"]).is_equal_to({'ham': 456, '123': "spam"})
+
     obj2 = MyValue(key1="Foo",
                    key3={'ham': 456, '123': "spam"})
 
-    assert obj1['key1'] == "Foo"
-    assert obj1['key2'] == "ham"
-    assert obj1['key3'] == {'ham': 456, '123': "spam"}
-
-    assert obj1 == obj2
-    assert hash(obj1) == hash(obj2)
+    assert_that(obj1).is_equal_to(obj2)
+    assert_that(hash(obj1)).is_equal_to(hash(obj2))
 
 
 class TestOverride(object):
@@ -35,10 +37,11 @@ class TestOverride(object):
     obj2 = MyValueWithInit(pattern=re.compile("str"),
                            key1="Foo")
 
-    assert obj1['key1'] == "Foo"
+    assert_that(obj1) \
+        .described_as("obj1.pattern is properly converted to regexp pattern") \
+        .is_equal_to(obj2)
 
-    assert obj1 == obj2
-    assert hash(obj1) == hash(obj2)
+    assert_that(hash(obj1)).is_equal_to(hash(obj2))
 
 
 class TestMalformedClassDeclaration(object):
@@ -50,4 +53,5 @@ class TestMalformedClassDeclaration(object):
         obj1 = MyValueWithKWArgs(pattern="str",
                                  key1="Foo")
 
-    assert e.value.args[0] == "__init__ with *args or **kwargs are not allowed"
+    assert_that(e.value.args[0]) \
+        .is_equal_to("__init__ with *args or **kwargs are not allowed")

@@ -6,7 +6,6 @@ import logging
 import types
 
 import pytest
-from apscheduler.triggers.interval import IntervalTrigger
 from sleekxmpp import ClientXMPP
 from sleekxmpp.test import TestSocket
 from sleekxmpp.stanza import Message
@@ -14,9 +13,10 @@ from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.xmlstream import JID
 from mock import MagicMock, call, patch
 
-from sarah.bot.values import UserContext, CommandMessage
+from sarah.bot.values import UserContext, CommandMessage, Command
 from sarah.bot.hipchat import HipChat, SarahHipChatException
 import sarah.bot.plugins.simple_counter
+from assertpy import assert_that
 
 
 # noinspection PyProtectedMember
@@ -51,19 +51,27 @@ class TestInit(object):
                                  'username': 'homers',
                                  'password': 'mypassword'})
 
-        assert hipchat.nick == 'Sarah'
-        assert hipchat.rooms == ['123_homer@localhost']
-        assert hipchat.client.requested_jid == JID('test@localhost',
-                                                   cache_lock=True)
-
+        # This doesn't work with assertpy.
+        # Does this have something to do with ABCMeta?
+        # assert_that(hipchat).is_instance_of(HipChat)
         assert isinstance(hipchat, HipChat) is True
-        assert isinstance(hipchat.client, ClientXMPP) is True
 
-        assert hipchat.client.use_proxy is True
-        assert hipchat.client.proxy_config == {'host': 'localhost',
-                                               'port': 1234,
-                                               'username': 'homers',
-                                               'password': 'mypassword'}
+        assert_that(hipchat) \
+            .has_nick('Sarah') \
+            .has_rooms(['123_homer@localhost'])
+
+        assert_that(hipchat.client) \
+            .is_instance_of(ClientXMPP) \
+            .has_use_proxy(True) \
+            .has_proxy_config({'host': 'localhost',
+                               'port': 1234,
+                               'username': 'homers',
+                               'password': 'mypassword'})
+
+        assert_that(hipchat.client.requested_jid) \
+            .is_not_none() \
+            .is_instance_of(JID) \
+            .is_equal_to(JID('test@localhost', cache_lock=True))
 
     def test_load_plugins(self):
         hipchat = HipChat(nick='Sarah',
@@ -78,23 +86,20 @@ class TestInit(object):
 
         hipchat.load_plugins(hipchat.plugins)
 
-        assert list(hipchat.commands.keys()) == ['.count',
-                                                 '.reset_count',
-                                                 '.echo']
+        assert_that(hipchat.commands.keys()).contains('.count',
+                                                      '.reset_count',
+                                                      '.echo')
 
         commands = list(hipchat.commands.values())
+        assert_that(commands) \
+            .extract('name', 'module_name') \
+            .contains_sequence(('.count', 'sarah.bot.plugins.simple_counter'),
+                               ('.reset_count',
+                                'sarah.bot.plugins.simple_counter'),
+                               ('.echo', 'sarah.bot.plugins.echo'))
 
-        assert commands[0].name == '.count'
-        assert commands[0].module_name == 'sarah.bot.plugins.simple_counter'
-        assert isinstance(commands[0].function, types.FunctionType) is True
-
-        assert commands[1].name == '.reset_count'
-        assert commands[1].module_name == 'sarah.bot.plugins.simple_counter'
-        assert isinstance(commands[1].function, types.FunctionType) is True
-
-        assert commands[2].name == '.echo'
-        assert commands[2].module_name == 'sarah.bot.plugins.echo'
-        assert isinstance(commands[2].function, types.FunctionType) is True
+        for command in commands:
+            assert_that(command.function).is_type_of(types.FunctionType)
 
     def test_non_existing_plugin(self):
         h = HipChat(nick='Sarah',
@@ -102,8 +107,9 @@ class TestInit(object):
                     password='password',
                     plugins=(('spam.ham.egg.onion', {}),))
         h.load_plugins(h.plugins)
-        assert len(h.commands) == 0
-        assert len(h.scheduler.get_jobs()) == 0
+
+        assert_that(h.commands).is_empty()
+        assert_that(h.scheduler.get_jobs()).is_empty()
 
     def test_connection_fail(self):
         hipchat = HipChat(nick='Sarah',
@@ -113,12 +119,13 @@ class TestInit(object):
         with patch.object(
                 hipchat.client,
                 'connect',
-                return_value=False) as _mock_connect:
+                return_value=False) as mock_connect:
             with pytest.raises(SarahHipChatException) as e:
                 hipchat.run()
 
-            assert e.value.args[0] == 'Couldn\'t connect to server.'
-            assert _mock_connect.call_count == 1
+            assert_that(str(e)) \
+                .matches("Couldn't connect to server\.")
+            assert_that(mock_connect.call_count).is_equal_to(1)
 
     def test_run(self):
         hipchat = HipChat(nick='Sarah',
@@ -132,8 +139,8 @@ class TestInit(object):
                     return_value=True) as mock_client_process:
                 hipchat.run()
 
-                assert mock_client_process.call_count == 1
-                assert hipchat.scheduler.running is True
+                assert_that(mock_client_process.call_count).is_equal_to(1)
+                assert_that(hipchat.scheduler.running).is_true()
 
 
 # noinspection PyUnresolvedReferences
@@ -152,22 +159,21 @@ class TestFindCommand(object):
         return h
 
     def test_no_corresponding_command(self, hipchat):
-        command = hipchat.find_command('egg')
-        assert command is None
+        assert_that(hipchat.find_command('egg')).is_none()
 
     def test_echo(self, hipchat):
-        command = hipchat.find_command('.echo spam ham')
-        assert command.config == {}
-        assert command.name == '.echo'
-        assert command.module_name == 'sarah.bot.plugins.echo'
-        assert isinstance(command.function, types.FunctionType) is True
+        assert_that(hipchat.find_command('.echo spam ham')) \
+            .is_instance_of(Command) \
+            .has_config({}) \
+            .has_name('.echo') \
+            .has_module_name('sarah.bot.plugins.echo')
 
     def test_count(self, hipchat):
-        command = hipchat.find_command('.count spam')
-        assert command.config == {'spam': 'ham'}
-        assert command.name == '.count'
-        assert command.module_name == 'sarah.bot.plugins.simple_counter'
-        assert isinstance(command.function, types.FunctionType) is True
+        assert_that(hipchat.find_command('.count spam')) \
+            .is_instance_of(Command) \
+            .has_config({'spam': 'ham'}) \
+            .has_name('.count') \
+            .has_module_name('sarah.bot.plugins.simple_counter')
 
 
 # noinspection PyUnresolvedReferences
@@ -194,7 +200,7 @@ class TestMessage(object):
         ret = concurrent.futures.wait([future], 5, return_when=ALL_COMPLETED)
         if len(ret.not_done) > 0:
             logging.error("Jobs are not finished.")
-        assert future in ret.done
+        assert_that(ret.done).contains(future)
 
     def test_skip_message(self, hipchat):
         msg = Message(hipchat.client, stype='normal')
@@ -203,7 +209,7 @@ class TestMessage(object):
         msg.reply = MagicMock()
 
         self.wait_future_finish(hipchat.message(msg))
-        assert msg.reply.call_count == 0
+        assert_that(msg.reply.call_count).is_equal_to(0)
 
     def test_echo_message(self, hipchat):
         msg = Message(hipchat.client, stype='normal')
@@ -212,8 +218,8 @@ class TestMessage(object):
         msg.reply = MagicMock()
 
         self.wait_future_finish(hipchat.message(msg))
-        assert msg.reply.call_count == 1
-        assert msg.reply.call_args == call('spam')
+        assert_that(msg.reply.call_count).is_equal_to(1)
+        assert_that(msg.reply.call_args).is_equal_to(call('spam'))
 
     def test_count_message(self, hipchat):
         msg = Message(hipchat.client,
@@ -224,47 +230,53 @@ class TestMessage(object):
         msg.reply = MagicMock()
 
         self.wait_future_finish(hipchat.message(msg))
-        assert msg.reply.call_count == 1
-        assert msg.reply.call_args == call('1')
+        assert_that(msg.reply.call_count).is_equal_to(1)
+        assert_that(msg.reply.call_args).is_equal_to(call('1'))
 
         self.wait_future_finish(hipchat.message(msg))
-        assert msg.reply.call_count == 2
-        assert msg.reply.call_args == call('2')
+        assert_that(msg.reply.call_count).is_equal_to(2)
+        assert_that(msg.reply.call_args).is_equal_to(call('2'))
 
         msg['body'] = '.count egg'
         self.wait_future_finish(hipchat.message(msg))
-        assert msg.reply.call_count == 3
-        assert msg.reply.call_args == call('1')
+        assert_that(msg.reply.call_count).is_equal_to(3)
+        assert_that(msg.reply.call_args).is_equal_to(call('1'))
 
-        stash = vars(sarah.bot.plugins.simple_counter).get(
-            '__stash', {}).get('hipchat', {})
-        assert stash == {'123_homer@localhost/Oklahomer': {'ham': 2, 'egg': 1}}
+        stash = vars(sarah.bot.plugins.simple_counter) \
+            .get('__stash') \
+            .get('hipchat')
+        assert_that(stash) \
+            .is_equal_to({'123_homer@localhost/Oklahomer': {'ham': 2,
+                                                            'egg': 1}})
 
     def test_conversation(self, hipchat):
         user_key = '123_homer@localhost/Oklahomer'
 
         # Initial message
-        assert (hipchat.respond(user_key, '.hello') ==
-                "Hello. How are you feeling today?")
+        assert_that(hipchat.respond(user_key, '.hello')) \
+            .is_equal_to("Hello. How are you feeling today?")
 
         # Context is set
-        assert isinstance(hipchat.user_context_map.get(user_key), UserContext)
+        assert_that(hipchat.user_context_map.get(user_key)) \
+            .is_instance_of(UserContext)
 
         # Wrong formatted message results with help message
-        assert (hipchat.respond(user_key, "SomeBizarreText") ==
-                "Say Good or Bad, please.")
+        assert_that(hipchat.respond(user_key, "SomeBizarreText")) \
+            .is_equal_to("Say Good or Bad, please.")
 
-        assert (hipchat.respond(user_key, "Bad") ==
-                "Are you sick?")
+        assert_that(hipchat.respond(user_key, "Bad")) \
+            .is_equal_to("Are you sick?")
 
         # Still in conversation
-        assert isinstance(hipchat.user_context_map.get(user_key), UserContext)
+        assert_that(hipchat.user_context_map.get(user_key)) \
+            .is_instance_of(UserContext)
 
         # The last yes/no question
-        assert hipchat.respond(user_key, "Yes")
+        assert_that(hipchat.respond(user_key, "Yes")) \
+            .is_equal_to("I'm sorry to hear that. Hope you get better, soon.")
 
         # Context is removed
-        assert hipchat.user_context_map.get(user_key) is None
+        assert_that(hipchat.user_context_map.get(user_key)).is_none()
 
 
 # noinspection PyUnresolvedReferences
@@ -294,42 +306,43 @@ class TestSessionStart(object):
             with patch.object(
                     hipchat.client,
                     'get_roster',
-                    side_effect=self.throw_iq_timeout) as _mock_get_roster:
+                    side_effect=self.throw_iq_timeout) as mock_get_roster:
                 with pytest.raises(SarahHipChatException) as e:
                     hipchat.session_start(None)
 
-                assert _mock_get_roster.call_count == 1
-                assert e.value.args[0] == (
-                    'Timeout occurred while getting roster. '
-                    'Error type: cancel. '
-                    'Condition: remote-server-timeout.')
+                assert_that(mock_get_roster.call_count).is_equal_to(1)
+                assert_that(str(e)) \
+                    .matches('Timeout occurred while getting roster. '
+                             'Error type: cancel. '
+                             'Condition: remote-server-timeout.')
 
     def test_unknown_error(self, hipchat):
         with patch.object(hipchat.client, 'send_presence', return_value=None):
             with patch.object(
                     hipchat.client,
                     'get_roster',
-                    side_effect=self.throw_exception) as _mock_get_roster:
+                    side_effect=self.throw_exception) as mock_get_roster:
                 with pytest.raises(SarahHipChatException) as e:
                     hipchat.session_start(None)
 
-                assert _mock_get_roster.call_count == 1
-                assert e.value.args[0] == (
-                    'Unknown error occurred: spam.ham.egg.')
+                assert_that(mock_get_roster.call_count).is_equal_to(1)
+                assert_that(str(e)) \
+                    .matches('Unknown error occurred: spam.ham.egg.')
 
     def test_iq_error(self, hipchat):
         with patch.object(hipchat.client, 'send_presence', return_value=None):
             with patch.object(
                     hipchat.client,
                     'get_roster',
-                    side_effect=self.throw_iq_error) as _mock_get_roster:
+                    side_effect=self.throw_iq_error) as mock_get_roster:
                 with pytest.raises(SarahHipChatException) as e:
                     hipchat.session_start(None)
 
-                assert _mock_get_roster.call_count == 1
-                assert e.value.args[0] == (
-                    'IQError while getting roster. '
-                    'Error type: spam. Condition: ham. Content: egg.')
+                assert_that(mock_get_roster.call_count).is_equal_to(1)
+                assert_that(str(e)) \
+                    .matches('IQError while getting roster. '
+                             'Error type: spam. '
+                             'Condition: ham. Content: egg.')
 
 
 # noinspection PyUnresolvedReferences
@@ -343,14 +356,13 @@ class TestJoinRooms(object):
 
         with patch.object(h.client.plugin['xep_0045'].xmpp,
                           'send',
-                          return_value=None) as _mock_send:
+                          return_value=None) as mock_send:
             h.join_rooms({})
 
-            assert _mock_send.call_count == 1
-            assert h.client.plugin['xep_0045'].rooms == {
-                '123_homer@localhost': {}}
-            assert h.client.plugin['xep_0045'].ourNicks == {
-                '123_homer@localhost': h.nick}
+            assert_that(mock_send.call_count).is_equal_to(1)
+            assert_that(h.client.plugin['xep_0045']) \
+                .has_rooms({'123_homer@localhost': {}}) \
+                .has_ourNicks({'123_homer@localhost': h.nick})
 
     def test_no_setting(self):
         h = HipChat(nick='Sarah',
@@ -360,12 +372,13 @@ class TestJoinRooms(object):
 
         with patch.object(h.client.plugin['xep_0045'].xmpp,
                           'send',
-                          return_value=None) as _mock_send:
+                          return_value=None) as mock_send:
             h.join_rooms({})
 
-            assert _mock_send.call_count == 0
-            assert h.client.plugin['xep_0045'].rooms == {}
-            assert h.client.plugin['xep_0045'].ourNicks == {}
+            assert_that(mock_send.call_count).is_equal_to(0)
+            assert_that(h.client.plugin['xep_0045']) \
+                .has_rooms({}) \
+                .has_ourNicks({})
 
 
 # noinspection PyUnresolvedReferences
@@ -380,10 +393,13 @@ class TestSchedule(object):
         hipchat.connect = lambda: True
         hipchat.run()
 
-        assert logging.warning.call_count == 1
-        assert logging.warning.call_args == call(
-            'Missing configuration for schedule job. '
-            'sarah.bot.plugins.bmw_quotes. Skipping.')
+        assert_that(hipchat.scheduler.get_jobs()) \
+            .described_as("No module is loaded") \
+            .is_empty()
+        assert_that(logging.warning.call_count).is_equal_to(1)
+        assert_that(logging.warning.call_args) \
+            .is_equal_to(call('Missing configuration for schedule job. '
+                              'sarah.bot.plugins.bmw_quotes. Skipping.'))
 
     def test_missing_rooms_config(self):
         logging.warning = MagicMock()
@@ -396,10 +412,10 @@ class TestSchedule(object):
         hipchat.load_plugins(hipchat.plugins)
         hipchat.run()
 
-        assert logging.warning.call_count == 1
-        assert logging.warning.call_args == call(
-            'Missing rooms configuration for schedule job. '
-            'sarah.bot.plugins.bmw_quotes. Skipping.')
+        assert_that(logging.warning.call_count).is_equal_to(1)
+        assert_that(logging.warning.call_args) \
+            .is_equal_to(call('Missing rooms configuration for schedule job. '
+                              'sarah.bot.plugins.bmw_quotes. Skipping.'))
 
     def test_add_schedule_job(self):
         hipchat = HipChat(nick='Sarah',
@@ -411,11 +427,9 @@ class TestSchedule(object):
         hipchat.run()
 
         jobs = hipchat.scheduler.get_jobs()
-        assert len(jobs) == 1
-        assert jobs[0].id == 'sarah.bot.plugins.bmw_quotes.bmw_quotes'
-        assert isinstance(jobs[0].trigger, IntervalTrigger) is True
-        assert jobs[0].trigger.interval_length == 300
-        assert isinstance(jobs[0].func, types.FunctionType) is True
+        assert_that(jobs).is_length(1)
+        assert_that(jobs[0]).has_id('sarah.bot.plugins.bmw_quotes.bmw_quotes')
+        assert_that(jobs[0].trigger).has_interval_length(300)
 
 
 class TestCommandMessage(object):
@@ -423,10 +437,11 @@ class TestCommandMessage(object):
         msg = CommandMessage(original_text='.count foo',
                              text='foo',
                              sender='123_homer@localhost/Oklahomer')
-        assert msg.original_text == '.count foo'
-        assert msg.text == 'foo'
-        assert msg.sender == '123_homer@localhost/Oklahomer'
+        assert_that(msg) \
+            .has_original_text('.count foo') \
+            .has_text('foo') \
+            .has_sender('123_homer@localhost/Oklahomer')
 
         # Can't change
         msg.__original_text = 'foo'
-        assert msg.original_text == '.count foo'
+        assert_that(msg).has_original_text('.count foo')
