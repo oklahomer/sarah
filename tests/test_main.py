@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+from assertpy import assert_that
 
 import pytest
 
@@ -13,14 +14,16 @@ class TestInit(object):
                                   'config',
                                   'valid.yaml')
         sarah = Sarah(config_paths=[valid_path])
-        assert type(sarah.config) == dict
-        assert 'hipchat' in sarah.config
+        assert_that(sarah.config).is_type_of(dict).contains('hipchat')
 
     def test_non_existing_paths(self):
         non_existing_paths = [os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             'non_existing_file.yaml')]
+
         with pytest.raises(SarahException) as e:
             Sarah(config_paths=non_existing_paths)
-        assert e.value.args[0] == 'Configuration file does not exist. %s' % (
-            non_existing_paths[0])
+
+        assert_that(str(e))\
+            .contains('Configuration file does not exist')\
+            .contains(non_existing_paths[0])

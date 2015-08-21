@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from assertpy import assert_that
 from sarah.bot.values import CommandMessage
 from sarah.bot.plugins.bmw_quotes import slack_quote
 from sarah.bot.plugins.echo import slack_echo
@@ -13,7 +14,10 @@ class TestEcho(object):
                                              text='spam ham',
                                              sender='U06TXXXXX'),
                               {})
-        assert response == 'spam ham'
+
+        assert_that(response) \
+            .described_as(".echo returns user inputs") \
+            .is_equal_to("spam ham")
 
 
 class TestSimpleCounter(object):
@@ -25,45 +29,54 @@ class TestSimpleCounter(object):
         msg = CommandMessage(original_text='.count ham',
                              text='ham',
                              sender='U06TXXXXX')
-        response = slack_count(msg, {})
-        assert response == str(1)
+        assert_that(slack_count(msg, {})) \
+            .described_as(".count command increments count") \
+            .is_equal_to('1')
 
     def test_multiple_calls_with_same_word(self):
         msg = CommandMessage(original_text='.count ham',
                              text='ham',
                              sender='U06TXXXXX')
-        first_response = slack_count(msg, {})
-        assert first_response == str(1)
+        assert_that(slack_count(msg, {})) \
+            .described_as("First count returns 1") \
+            .is_equal_to('1')
 
         other_msg = CommandMessage(original_text='.count ham',
                                    text='ham',
                                    sender='U06TYYYYYY')
-        other_user_response = slack_count(other_msg, {})
-        assert other_user_response == str(1)
+        assert_that(slack_count(other_msg, {})) \
+            .described_as("Different counter for different message") \
+            .is_equal_to('1')
 
-        second_response = slack_count(msg, {})
-        assert second_response == str(2)
+        assert_that(slack_count(msg, {})) \
+            .described_as("Same message results in incremented count") \
+            .is_equal_to('2')
 
         reset_msg = CommandMessage(original_text='.reset_count',
                                    text='',
                                    sender='U06TXXXXX')
-        slack_reset_count(reset_msg, {})
+        assert_that(slack_reset_count(reset_msg, {})) \
+            .described_as(".reset_count command resets current count") \
+            .is_equal_to("restart counting")
 
-        third_response = slack_count(msg, {})
-        assert third_response == str(1)
+        assert_that(slack_count(msg, {})) \
+            .described_as("Count restarts") \
+            .is_equal_to('1')
 
     def test_multiple_calls_with_different_word(self):
         msg = CommandMessage(original_text='.count ham',
                              text='ham',
                              sender='U06TXXXXX')
-        first_response = slack_count(msg, {})
-        assert first_response == str(1)
+        assert_that(slack_count(msg, {})) \
+            .described_as("First count message returns 1") \
+            .is_equal_to('1')
 
         other_msg = CommandMessage(original_text='.count spam',
                                    text='spam',
                                    sender='U06TXXXXX')
-        second_response = slack_count(other_msg, {})
-        assert second_response == str(1)
+        assert_that(slack_count(other_msg, {})) \
+            .described_as("Second message with different content returns 1") \
+            .is_equal_to('1')
 
 
 class TestBMWQuotes(object):
@@ -71,5 +84,6 @@ class TestBMWQuotes(object):
         msg = CommandMessage(original_text='.bmw',
                              text='',
                              sender='U06TXXXXX')
-        response = slack_quote(msg, {})
-        assert (response in sarah.bot.plugins.bmw_quotes.quotes) is True
+        assert_that(sarah.bot.plugins.bmw_quotes.quotes) \
+            .described_as("Returned text is part of stored sample") \
+            .contains(slack_quote(msg, {}))

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from assertpy import assert_that
 from sarah.bot.values import UserContext, CommandMessage
 from sarah.bot.plugins.echo import hipchat_echo
 from sarah.bot.plugins.hello import hipchat_hello, hipchat_user_feeling_good, \
@@ -16,7 +17,10 @@ class TestEcho(object):
                            text='spam ham',
                            sender='123_homer@localhost/Oklahomer'),
             {})
-        assert response == 'spam ham'
+
+        assert_that(response) \
+            .described_as(".echo returns user inputs") \
+            .is_equal_to("spam ham")
 
 
 class TestSimpleCounter(object):
@@ -28,45 +32,54 @@ class TestSimpleCounter(object):
         msg = CommandMessage(original_text='.count ham',
                              text='ham',
                              sender='123_homer@localhost/Oklahomer')
-        response = hipchat_count(msg, {})
-        assert response == str(1)
+        assert_that(hipchat_count(msg, {})) \
+            .described_as(".count command increments count") \
+            .is_equal_to('1')
 
     def test_multiple_calls_with_same_word(self):
         msg = CommandMessage(original_text='.count ham',
                              text='ham',
                              sender='123_homer@localhost/Oklahomer')
-        first_response = hipchat_count(msg, {})
-        assert first_response == str(1)
+        assert_that(hipchat_count(msg, {})) \
+            .described_as("First count returns 1") \
+            .is_equal_to('1')
 
         other_msg = CommandMessage(original_text='.count ham',
                                    text='ham',
                                    sender='other@localhost/Oklahomer')
-        other_user_response = hipchat_count(other_msg, {})
-        assert other_user_response == str(1)
+        assert_that(hipchat_count(other_msg, {})) \
+            .described_as("Different counter for different message") \
+            .is_equal_to('1')
 
-        second_response = hipchat_count(msg, {})
-        assert second_response == str(2)
+        assert_that(hipchat_count(msg, {})) \
+            .described_as("Same message results in incremented count") \
+            .is_equal_to('2')
 
         reset_msg = CommandMessage(original_text='.reset_count',
                                    text='',
                                    sender='123_homer@localhost/Oklahomer')
-        hipchat_reset_count(reset_msg, {})
+        assert_that(hipchat_reset_count(reset_msg, {})) \
+            .described_as(".reset_count command resets current count") \
+            .is_equal_to("restart counting")
 
-        third_response = hipchat_count(msg, {})
-        assert third_response == str(1)
+        assert_that(hipchat_count(msg, {})) \
+            .described_as("Count restarts") \
+            .is_equal_to('1')
 
     def test_multiple_calls_with_different_word(self):
         msg = CommandMessage(original_text='.count ham',
                              text='ham',
                              sender='123_homer@localhost/Oklahomer')
-        first_response = hipchat_count(msg, {})
-        assert first_response == str(1)
+        assert_that(hipchat_count(msg, {})) \
+            .described_as("First count message returns 1") \
+            .is_equal_to('1')
 
         other_msg = CommandMessage(original_text='.count spam',
                                    text='spam',
                                    sender='123_homer@localhost/Oklahomer')
-        second_response = hipchat_count(other_msg, {})
-        assert second_response == str(1)
+        assert_that(hipchat_count(other_msg, {})) \
+            .described_as("Second message with different content returns 1") \
+            .is_equal_to('1')
 
 
 class TestBMWQuotes(object):
@@ -74,8 +87,9 @@ class TestBMWQuotes(object):
         msg = CommandMessage(original_text='.bmw',
                              text='',
                              sender='123_homer@localhost/Oklahomer')
-        response = hipchat_quote(msg, {})
-        assert (response in sarah.bot.plugins.bmw_quotes.quotes) is True
+        assert_that(sarah.bot.plugins.bmw_quotes.quotes) \
+            .described_as("Returned text is part of stored sample") \
+            .contains(hipchat_quote(msg, {}))
 
 
 class TestHello(object):
@@ -84,16 +98,25 @@ class TestHello(object):
                              text='',
                              sender='spam@localhost/ham')
         response = hipchat_hello(msg, {})
-        assert isinstance(response, UserContext) is True
-        assert response.message == "Hello. How are you feeling today?"
-        assert len(response.input_options) == 2
-        assert (response.input_options[0].next_step.__name__ ==
-                hipchat_user_feeling_good.__name__)
-        assert (response.input_options[1].next_step.__name__ ==
-                hipchat_user_feeling_bad.__name__)
 
-        assert (response.input_options[0].next_step("Good") ==
-                "Good to hear that.")
+        assert_that(response) \
+            .described_as(".hello initiates conversation.") \
+            .is_instance_of(UserContext) \
+            .has_message("Hello. How are you feeling today?")
 
-        isinstance(response.input_options[1].next_step("Bad"),
-                   UserContext) is True
+        assert_that(response.input_options) \
+            .described_as("User has two options to respond.") \
+            .is_length(2)
+
+        assert_that([o.next_step.__name__ for o in response.input_options]) \
+            .described_as("Those options include 'Good' and 'Bad'") \
+            .contains(hipchat_user_feeling_good.__name__,
+                      hipchat_user_feeling_bad.__name__)
+
+        assert_that(response.input_options[0].next_step("Good")) \
+            .described_as("When 'Good,' just return text.") \
+            .is_equal_to("Good to hear that.")
+
+        assert_that(response.input_options[1].next_step("Bad")) \
+            .described_as("When 'Bad,' continue to ask health status") \
+            .is_instance_of(UserContext)
