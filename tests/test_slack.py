@@ -31,7 +31,7 @@ class TestInit(object):
                       plugins=(('sarah.bot.plugins.simple_counter', {}),
                                ('sarah.bot.plugins.echo', {})),
                       max_workers=1)
-        slack.load_plugins(slack.plugins)
+        slack.load_plugins(slack.plugin_modules)
 
         assert_that(slack.commands.keys()) \
             .described_as("3 commands are loaded") \
@@ -54,7 +54,7 @@ class TestInit(object):
         slack = Slack(token='spam_ham_egg',
                       plugins=(('spam.ham.egg.onion', {}),),
                       max_workers=1)
-        slack.load_plugins(slack.plugins)
+        slack.load_plugins(slack.plugin_modules)
 
         assert_that(slack.commands).is_empty()
         assert_that(slack.scheduler.get_jobs()).is_empty()

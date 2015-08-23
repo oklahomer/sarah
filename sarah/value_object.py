@@ -42,7 +42,6 @@ class ValueObject(object):
         return self.__stash[key]
 
     def __setitem__(self, key, value) -> Any:
-        # TODO Currently supporting value assignment, but will be removed.
         self.__stash[key] = value
 
     def __repr__(self):

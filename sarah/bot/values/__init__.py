@@ -70,10 +70,8 @@ class Command(ValueObject):
                  name: str,
                  function: CommandFunction,
                  module_name: str,
-                 config: CommandConfig=None) -> None:
-
-        config = config if config else dict()
-        self['config'] = config
+                 config: CommandConfig) -> None:
+        pass
 
     @property
     def name(self):
@@ -95,7 +93,3 @@ class Command(ValueObject):
         args = list(args)
         args.append(self.config)
         return self.function(*args)
-
-    def set_config(self, config: CommandConfig) -> None:
-        # FIXME This should be removed in favor of VO's immutability.
-        self['config'] = config

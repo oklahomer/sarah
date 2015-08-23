@@ -84,7 +84,7 @@ class TestInit(object):
                                  'username': 'homers',
                                  'password': 'mypassword'})
 
-        hipchat.load_plugins(hipchat.plugins)
+        hipchat.load_plugins(hipchat.plugin_modules)
 
         assert_that(hipchat.commands.keys()).contains('.count',
                                                       '.reset_count',
@@ -106,7 +106,7 @@ class TestInit(object):
                     jid='test@localhost',
                     password='password',
                     plugins=(('spam.ham.egg.onion', {}),))
-        h.load_plugins(h.plugins)
+        h.load_plugins(h.plugin_modules)
 
         assert_that(h.commands).is_empty()
         assert_that(h.scheduler.get_jobs()).is_empty()
@@ -155,7 +155,7 @@ class TestFindCommand(object):
                     plugins=(('sarah.bot.plugins.simple_counter',
                               {'spam': 'ham'}),
                              ('sarah.bot.plugins.echo',)))
-        h.load_plugins(h.plugins)
+        h.load_plugins(h.plugin_modules)
         return h
 
     def test_no_corresponding_command(self, hipchat):
@@ -409,7 +409,7 @@ class TestSchedule(object):
                           password='password',
                           plugins=(('sarah.bot.plugins.bmw_quotes', {}),))
         hipchat.connect = lambda: True
-        hipchat.load_plugins(hipchat.plugins)
+        hipchat.load_plugins(hipchat.plugin_modules)
         hipchat.run()
 
         assert_that(logging.warning.call_count).is_equal_to(1)
