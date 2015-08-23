@@ -86,19 +86,18 @@ class TestInit(object):
 
         hipchat.load_plugins(hipchat.plugin_modules)
 
-        assert_that(hipchat.commands.keys()).contains('.count',
-                                                      '.reset_count',
-                                                      '.echo')
+        assert_that(hipchat.commands).extract('name').contains('.count',
+                                                               '.reset_count',
+                                                               '.echo')
 
-        commands = list(hipchat.commands.values())
-        assert_that(commands) \
+        assert_that(hipchat.commands) \
             .extract('name', 'module_name') \
             .contains_sequence(('.count', 'sarah.bot.plugins.simple_counter'),
                                ('.reset_count',
                                 'sarah.bot.plugins.simple_counter'),
                                ('.echo', 'sarah.bot.plugins.echo'))
 
-        for command in commands:
+        for command in hipchat.commands:
             assert_that(command.function).is_type_of(types.FunctionType)
 
     def test_non_existing_plugin(self):
@@ -412,7 +411,7 @@ class TestSchedule(object):
         hipchat.load_plugins(hipchat.plugin_modules)
         hipchat.run()
 
-        assert_that(logging.warning.call_count).is_equal_to(1)
+        assert_that(logging.warning.call_count).is_true()
         assert_that(logging.warning.call_args) \
             .is_equal_to(call('Missing rooms configuration for schedule job. '
                               'sarah.bot.plugins.bmw_quotes. Skipping.'))

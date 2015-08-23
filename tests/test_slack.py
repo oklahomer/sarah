@@ -33,21 +33,22 @@ class TestInit(object):
                       max_workers=1)
         slack.load_plugins(slack.plugin_modules)
 
-        assert_that(slack.commands.keys()) \
+        assert_that(slack.commands) \
             .described_as("3 commands are loaded") \
+            .is_length(3) \
+            .extract('name') \
             .contains('.count',
                       '.reset_count',
                       '.echo')
 
-        commands = list(slack.commands.values())
-        assert_that(commands) \
+        assert_that(slack.commands) \
             .extract('name', 'module_name') \
             .contains_sequence(('.count', 'sarah.bot.plugins.simple_counter'),
                                ('.reset_count',
                                 'sarah.bot.plugins.simple_counter'),
                                ('.echo', 'sarah.bot.plugins.echo'))
 
-        for command in commands:
+        for command in slack.commands:
             assert_that(command.function).is_type_of(types.FunctionType)
 
     def test_non_existing_plugin(self):

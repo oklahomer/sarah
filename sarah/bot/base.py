@@ -42,8 +42,8 @@ class Base(object, metaclass=abc.ABCMeta):
         self.message_worker = None
 
         # Reset to ease tests in one file
-        self.__commands[self.__class__.__name__] = OrderedDict()
-        self.__schedules[self.__class__.__name__] = OrderedDict()
+        self.__commands[self.__class__.__name__] = []
+        self.__schedules[self.__class__.__name__] = []
 
         # To refer to this instance from class method decorator
         self.__instances[self.__class__.__name__] = self
@@ -193,16 +193,8 @@ class Base(object, metaclass=abc.ABCMeta):
             return ret
 
     def find_command(self, text: str) -> Optional[Command]:
-        # Find the first registered command that matches the input text
-        command_name = next(
-            (k for k in self.commands.keys() if text.startswith(k)), None)
-
-        if command_name is None:
-            return None
-
-        command = self.commands[command_name]
-
-        return command
+        return next((c for c in self.commands if text.startswith(c.name)),
+                    None)
 
     @property
     def schedules(self) -> OrderedDict:
@@ -228,24 +220,31 @@ class Base(object, metaclass=abc.ABCMeta):
                 else:
                     # If command name duplicates, update with the later one.
                     # The order stays.
-                    cls.__schedules[cls.__name__].update(
-                        {name: Command(name,
-                                       wrapped_function,
-                                       func.__module__,
-                                       plugin_config)})
+                    command = Command(name,
+                                      wrapped_function,
+                                      func.__module__,
+                                      plugin_config)
+                    try:
+                        # If command is already registered, updated it.
+                        idx = [c.name for c in cls.__schedules[cls.__name__]] \
+                            .index(command)
+                        cls.__schedules[cls.__name__][idx] = command
+                    except ValueError:
+                        # Not registered, just append it.
+                        cls.__schedules[cls.__name__].append(command)
 
             # To ease plugin's unit test
             return wrapped_function
 
         return wrapper
 
-    def add_schedule_jobs(self, commands: OrderedDict) -> None:
-        for command in list(commands.values()):
+    def add_schedule_jobs(self, commands: Sequence[Command]) -> None:
+        for command in commands:
             self.add_schedule_job(command)
 
     @property
     def commands(self) -> OrderedDict:
-        return self.__commands.get(self.__class__.__name__, OrderedDict())
+        return self.__commands.get(self.__class__.__name__, [])
 
     @classmethod
     def command(cls, name: str) -> Callable[[CommandFunction],
@@ -262,11 +261,16 @@ class Base(object, metaclass=abc.ABCMeta):
                 plugin_config = self.plugin_config.get(func.__module__, {})
                 # If command name duplicates, update with the later one.
                 # The order stays.
-                cls.__commands[cls.__name__].update(
-                    {name: Command(name,
-                                   func,
-                                   func.__module__,
-                                   plugin_config)})
+
+                command = Command(name, func, func.__module__, plugin_config)
+                try:
+                    # If command is already registered, updated it.
+                    idx = [c.name for c in cls.__commands[cls.__name__]] \
+                        .index(command)
+                    cls.__commands[cls.__name__][idx] = command
+                except ValueError:
+                    # Not registered, just append it.
+                    cls.__commands[cls.__name__].append(command)
 
             # To ease plugin's unit test
             return wrapped_function
