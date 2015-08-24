@@ -12,11 +12,11 @@ from sleekxmpp.stanza import Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.xmlstream import JID
 from mock import MagicMock, call, patch
+from assertpy import assert_that
 
 from sarah.bot.values import UserContext, CommandMessage, Command
 from sarah.bot.hipchat import HipChat, SarahHipChatException
 import sarah.bot.plugins.simple_counter
-from assertpy import assert_that
 
 
 # noinspection PyProtectedMember
@@ -84,7 +84,7 @@ class TestInit(object):
                                  'username': 'homers',
                                  'password': 'mypassword'})
 
-        hipchat.load_plugins(hipchat.plugin_modules)
+        hipchat.load_plugins()
 
         assert_that(hipchat.commands).extract('name').contains('.count',
                                                                '.reset_count',
@@ -105,7 +105,7 @@ class TestInit(object):
                     jid='test@localhost',
                     password='password',
                     plugins=(('spam.ham.egg.onion', {}),))
-        h.load_plugins(h.plugin_modules)
+        h.load_plugins()
 
         assert_that(h.commands).is_empty()
         assert_that(h.scheduler.get_jobs()).is_empty()
@@ -154,7 +154,7 @@ class TestFindCommand(object):
                     plugins=(('sarah.bot.plugins.simple_counter',
                               {'spam': 'ham'}),
                              ('sarah.bot.plugins.echo',)))
-        h.load_plugins(h.plugin_modules)
+        h.load_plugins()
         return h
 
     def test_no_corresponding_command(self, hipchat):
@@ -397,6 +397,7 @@ class TestSchedule(object):
             .is_empty()
         assert_that(logging.warning.call_count).is_equal_to(1)
         assert_that(logging.warning.call_args) \
+            .described_as("Configuration is entirely missing.") \
             .is_equal_to(call('Missing configuration for schedule job. '
                               'sarah.bot.plugins.bmw_quotes. Skipping.'))
 
@@ -406,13 +407,16 @@ class TestSchedule(object):
         hipchat = HipChat(nick='Sarah',
                           jid='test@localhost',
                           password='password',
-                          plugins=(('sarah.bot.plugins.bmw_quotes', {}),))
+                          plugins=(('sarah.bot.plugins.bmw_quotes',
+                                    {"dummy": "spam"}),))
         hipchat.connect = lambda: True
-        hipchat.load_plugins(hipchat.plugin_modules)
+        hipchat.load_plugins()
         hipchat.run()
 
         assert_that(logging.warning.call_count).is_true()
         assert_that(logging.warning.call_args) \
+            .described_as("Configuration is given, "
+                          "but required field is missing") \
             .is_equal_to(call('Missing rooms configuration for schedule job. '
                               'sarah.bot.plugins.bmw_quotes. Skipping.'))
 

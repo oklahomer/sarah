@@ -31,7 +31,7 @@ class TestInit(object):
                       plugins=(('sarah.bot.plugins.simple_counter', {}),
                                ('sarah.bot.plugins.echo', {})),
                       max_workers=1)
-        slack.load_plugins(slack.plugin_modules)
+        slack.load_plugins()
 
         assert_that(slack.commands) \
             .described_as("3 commands are loaded") \
@@ -55,7 +55,7 @@ class TestInit(object):
         slack = Slack(token='spam_ham_egg',
                       plugins=(('spam.ham.egg.onion', {}),),
                       max_workers=1)
-        slack.load_plugins(slack.plugin_modules)
+        slack.load_plugins()
 
         assert_that(slack.commands).is_empty()
         assert_that(slack.scheduler.get_jobs()).is_empty()
@@ -126,9 +126,10 @@ class TestSchedule(object):
     def test_missing_channel_config(self):
         logging.warning = MagicMock()
 
-        slack = Slack(token='spam_ham_egg',
-                      plugins=(('sarah.bot.plugins.bmw_quotes', {}),),
-                      max_workers=1)
+        slack = Slack(
+            token='spam_ham_egg',
+            plugins=(('sarah.bot.plugins.bmw_quotes', {"dummy": "spam"}),),
+            max_workers=1)
         slack.connect = lambda: True
         slack.run()
 

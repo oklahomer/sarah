@@ -8,8 +8,11 @@ import importlib
 import logging
 import re
 import sys
+
 from apscheduler.schedulers.background import BackgroundScheduler
+
 from typing import Sequence, Optional, Callable, Union
+
 from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction
 from sarah.bot.values import Command, CommandMessage, UserContext
 from sarah.thread import ThreadExecutor
@@ -25,13 +28,13 @@ class Base(object, metaclass=abc.ABCMeta):
                  max_workers: Optional[int]=None) -> None:
         if not plugins:
             plugins = ()
-        self.plugin_modules = [p[0] for p in plugins]
 
         # {module_name: config, ...}
-        self.plugin_config = {}
-        for plugin in plugins:
-            if len(plugin) > 1:
-                self.plugin_config[plugin[0]] = plugin[1]
+        # Some simple plugins can be used without configuration, so second
+        # element may be omitted on assignment.
+        # In that case, just give empty dictionary as configuration value.
+        self.plugin_config = OrderedDict(
+            [(p[0], p[1] if len(p) > 1 else {}) for p in plugins])
 
         self.max_workers = max_workers
         self.scheduler = BackgroundScheduler()
@@ -63,8 +66,7 @@ class Base(object, metaclass=abc.ABCMeta):
         self.message_worker = ThreadExecutor()
 
         # Load plugins
-        if self.plugin_modules:
-            self.load_plugins(self.plugin_modules)
+        self.load_plugins()
 
         # Set scheduled job
         self.add_schedule_jobs(self.schedules)
@@ -105,9 +107,9 @@ class Base(object, metaclass=abc.ABCMeta):
     def enqueue_sending_message(self, function, *args, **kwargs) -> Future:
         return self.message_worker.submit(function, *args, **kwargs)
 
-    def load_plugins(self, plugin_modules: Sequence[str]) -> None:
-        for module in plugin_modules:
-            self.load_plugin(module)
+    def load_plugins(self) -> None:
+        for module_name in self.plugin_config.keys():
+            self.load_plugin(module_name)
 
     @staticmethod
     def load_plugin(module_name: str) -> None:
@@ -211,19 +213,14 @@ class Base(object, metaclass=abc.ABCMeta):
             # Register only if bot is instantiated.
             self = cls.__instances.get(cls.__name__, None)
             if self:
-                plugin_config = self.plugin_config.get(func.__module__, None)
-
-                if plugin_config is None:
-                    logging.warning(
-                        'Missing configuration for schedule job. %s. '
-                        'Skipping.' % func.__module__)
-                else:
+                config = self.plugin_config.get(func.__module__, {})
+                if config:
                     # If command name duplicates, update with the later one.
                     # The order stays.
                     command = Command(name,
                                       wrapped_function,
                                       func.__module__,
-                                      plugin_config)
+                                      config)
                     try:
                         # If command is already registered, updated it.
                         idx = [c.name for c in cls.__schedules[cls.__name__]] \
@@ -232,6 +229,10 @@ class Base(object, metaclass=abc.ABCMeta):
                     except ValueError:
                         # Not registered, just append it.
                         cls.__schedules[cls.__name__].append(command)
+                else:
+                    logging.warning(
+                        'Missing configuration for schedule job. %s. '
+                        'Skipping.' % func.__module__)
 
             # To ease plugin's unit test
             return wrapped_function
@@ -258,11 +259,11 @@ class Base(object, metaclass=abc.ABCMeta):
             # Register only if bot is instantiated.
             self = cls.__instances.get(cls.__name__, None)
             if self:
-                plugin_config = self.plugin_config.get(func.__module__, {})
+                config = self.plugin_config.get(func.__module__, {})
                 # If command name duplicates, update with the later one.
                 # The order stays.
 
-                command = Command(name, func, func.__module__, plugin_config)
+                command = Command(name, func, func.__module__, config)
                 try:
                     # If command is already registered, updated it.
                     idx = [c.name for c in cls.__commands[cls.__name__]] \
