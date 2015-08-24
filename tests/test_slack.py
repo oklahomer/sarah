@@ -31,30 +31,31 @@ class TestInit(object):
                       plugins=(('sarah.bot.plugins.simple_counter', {}),
                                ('sarah.bot.plugins.echo', {})),
                       max_workers=1)
-        slack.load_plugins(slack.plugins)
+        slack.load_plugins()
 
-        assert_that(slack.commands.keys()) \
+        assert_that(slack.commands) \
             .described_as("3 commands are loaded") \
+            .is_length(3) \
+            .extract('name') \
             .contains('.count',
                       '.reset_count',
                       '.echo')
 
-        commands = list(slack.commands.values())
-        assert_that(commands) \
+        assert_that(slack.commands) \
             .extract('name', 'module_name') \
             .contains_sequence(('.count', 'sarah.bot.plugins.simple_counter'),
                                ('.reset_count',
                                 'sarah.bot.plugins.simple_counter'),
                                ('.echo', 'sarah.bot.plugins.echo'))
 
-        for command in commands:
+        for command in slack.commands:
             assert_that(command.function).is_type_of(types.FunctionType)
 
     def test_non_existing_plugin(self):
         slack = Slack(token='spam_ham_egg',
                       plugins=(('spam.ham.egg.onion', {}),),
                       max_workers=1)
-        slack.load_plugins(slack.plugins)
+        slack.load_plugins()
 
         assert_that(slack.commands).is_empty()
         assert_that(slack.scheduler.get_jobs()).is_empty()
@@ -125,9 +126,10 @@ class TestSchedule(object):
     def test_missing_channel_config(self):
         logging.warning = MagicMock()
 
-        slack = Slack(token='spam_ham_egg',
-                      plugins=(('sarah.bot.plugins.bmw_quotes', {}),),
-                      max_workers=1)
+        slack = Slack(
+            token='spam_ham_egg',
+            plugins=(('sarah.bot.plugins.bmw_quotes', {"dummy": "spam"}),),
+            max_workers=1)
         slack.connect = lambda: True
         slack.run()
 

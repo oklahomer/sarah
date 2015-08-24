@@ -8,8 +8,11 @@ import importlib
 import logging
 import re
 import sys
+
 from apscheduler.schedulers.background import BackgroundScheduler
-from typing import Sequence, Optional, Callable
+
+from typing import Sequence, Optional, Callable, Union
+
 from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction
 from sarah.bot.values import Command, CommandMessage, UserContext
 from sarah.thread import ThreadExecutor
@@ -18,11 +21,21 @@ from sarah.thread import ThreadExecutor
 class Base(object, metaclass=abc.ABCMeta):
     __commands = {}
     __schedules = {}
+    __instances = {}
 
     def __init__(self,
                  plugins: Sequence[PluginConfig]=None,
                  max_workers: Optional[int]=None) -> None:
-        self.plugins = plugins
+        if not plugins:
+            plugins = ()
+
+        # {module_name: config, ...}
+        # Some simple plugins can be used without configuration, so second
+        # element may be omitted on assignment.
+        # In that case, just give empty dictionary as configuration value.
+        self.plugin_config = OrderedDict(
+            [(p[0], p[1] if len(p) > 1 else {}) for p in plugins])
+
         self.max_workers = max_workers
         self.scheduler = BackgroundScheduler()
         self.user_context_map = {}
@@ -32,8 +45,11 @@ class Base(object, metaclass=abc.ABCMeta):
         self.message_worker = None
 
         # Reset to ease tests in one file
-        self.__commands[self.__class__.__name__] = OrderedDict()
-        self.__schedules[self.__class__.__name__] = OrderedDict()
+        self.__commands[self.__class__.__name__] = []
+        self.__schedules[self.__class__.__name__] = []
+
+        # To refer to this instance from class method decorator
+        self.__instances[self.__class__.__name__] = self
 
     @abc.abstractmethod
     def add_schedule_job(self, command: Command) -> None:
@@ -50,8 +66,7 @@ class Base(object, metaclass=abc.ABCMeta):
         self.message_worker = ThreadExecutor()
 
         # Load plugins
-        if self.plugins:
-            self.load_plugins(self.plugins)
+        self.load_plugins()
 
         # Set scheduled job
         self.add_schedule_jobs(self.schedules)
@@ -92,9 +107,9 @@ class Base(object, metaclass=abc.ABCMeta):
     def enqueue_sending_message(self, function, *args, **kwargs) -> Future:
         return self.message_worker.submit(function, *args, **kwargs)
 
-    def load_plugins(self, plugins: Sequence[PluginConfig]) -> None:
-        for module_config in plugins:
-            self.load_plugin(module_config[0])
+    def load_plugins(self) -> None:
+        for module_name in self.plugin_config.keys():
+            self.load_plugin(module_name)
 
     @staticmethod
     def load_plugin(module_name: str) -> None:
@@ -180,24 +195,8 @@ class Base(object, metaclass=abc.ABCMeta):
             return ret
 
     def find_command(self, text: str) -> Optional[Command]:
-        # Find the first registered command that matches the input text
-        command_name = next(
-            (k for k in self.commands.keys() if text.startswith(k)), None)
-
-        if command_name is None:
-            return None
-
-        # Since command function is class method, when it is called with
-        # @command annotation from outside, self.plugins or other object
-        # properties are not accessible. So add plugin configuration at here.
-        # TODO look for better implementation.
-        command = self.commands[command_name]
-        plugin_info = next(
-            (i for i in self.plugins if i[0] == command.module_name), ())
-        if len(plugin_info) > 1:
-            command.set_config(plugin_info[1])
-
-        return command
+        return next((c for c in self.commands if text.startswith(c.name)),
+                    None)
 
     @property
     def schedules(self) -> OrderedDict:
@@ -205,60 +204,76 @@ class Base(object, metaclass=abc.ABCMeta):
 
     @classmethod
     def schedule(cls, name: str) -> Callable[[CommandFunction], None]:
-        if cls.__name__ not in cls.__schedules:
-            cls.__schedules[cls.__name__] = OrderedDict()
-
         def wrapper(func: CommandFunction) -> None:
+
             @wraps(func)
             def wrapped_function(*args, **kwargs) -> str:
                 return func(*args, **kwargs)
 
-            # If command name duplicates, update with the later one.
-            # The order stays.
-            cls.__schedules[cls.__name__].update(
-                {name: Command(name, wrapped_function, func.__module__)})
+            # Register only if bot is instantiated.
+            self = cls.__instances.get(cls.__name__, None)
+            if self:
+                config = self.plugin_config.get(func.__module__, {})
+                if config:
+                    # If command name duplicates, update with the later one.
+                    # The order stays.
+                    command = Command(name,
+                                      wrapped_function,
+                                      func.__module__,
+                                      config)
+                    try:
+                        # If command is already registered, updated it.
+                        idx = [c.name for c in cls.__schedules[cls.__name__]] \
+                            .index(command)
+                        cls.__schedules[cls.__name__][idx] = command
+                    except ValueError:
+                        # Not registered, just append it.
+                        cls.__schedules[cls.__name__].append(command)
+                else:
+                    logging.warning(
+                        'Missing configuration for schedule job. %s. '
+                        'Skipping.' % func.__module__)
 
-        return wrapper
-
-    def add_schedule_jobs(self, commands: OrderedDict) -> None:
-        for command in list(commands.values()):
-            plugin_info = next(
-                (i for i in self.plugins if i[0] == command.module_name), ())
-
-            if len(plugin_info) < 2:
-                logging.warning(
-                    'Missing configuration for schedule job. %s. '
-                    'Skipping.' % command.module_name)
-                continue
-
-            command.set_config(plugin_info[1])
-            self.add_schedule_job(command)
-
-    @property
-    def commands(self) -> OrderedDict:
-        return self.__commands.get(self.__class__.__name__, OrderedDict())
-
-    @classmethod
-    def command(cls, name: str) -> Callable[[CommandFunction],
-                                            CommandFunction]:
-        def wrapper(func: CommandFunction) -> CommandFunction:
-            @wraps(func)
-            def wrapped_function(*args, **kwargs) -> str:
-                return func(*args, **kwargs)
-
-            cls.add_command(name, wrapped_function, func.__module__)
+            # To ease plugin's unit test
             return wrapped_function
 
         return wrapper
 
-    @classmethod
-    def add_command(cls, name: str,
-                    func: CommandFunction,
-                    module_name: str) -> None:
-        if cls.__name__ not in cls.__commands:
-            cls.__commands[cls.__name__] = OrderedDict()
+    def add_schedule_jobs(self, commands: Sequence[Command]) -> None:
+        for command in commands:
+            self.add_schedule_job(command)
 
-        # If command name duplicates, update with the later one.
-        # The order stays.
-        cls.__commands[cls.__name__].update(
-            {name: Command(name, func, module_name)})
+    @property
+    def commands(self) -> OrderedDict:
+        return self.__commands.get(self.__class__.__name__, [])
+
+    @classmethod
+    def command(cls, name: str) -> Callable[[CommandFunction],
+                                            CommandFunction]:
+
+        def wrapper(func: CommandFunction) -> CommandFunction:
+            @wraps(func)
+            def wrapped_function(*args, **kwargs) -> Union[str, UserContext]:
+                return func(*args, **kwargs)
+
+            # Register only if bot is instantiated.
+            self = cls.__instances.get(cls.__name__, None)
+            if self:
+                config = self.plugin_config.get(func.__module__, {})
+                # If command name duplicates, update with the later one.
+                # The order stays.
+
+                command = Command(name, func, func.__module__, config)
+                try:
+                    # If command is already registered, updated it.
+                    idx = [c.name for c in cls.__commands[cls.__name__]] \
+                        .index(command)
+                    cls.__commands[cls.__name__][idx] = command
+                except ValueError:
+                    # Not registered, just append it.
+                    cls.__commands[cls.__name__].append(command)
+
+            # To ease plugin's unit test
+            return wrapped_function
+
+        return wrapper

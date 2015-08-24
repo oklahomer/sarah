@@ -6,7 +6,7 @@ from sarah.bot.plugins.hello import hipchat_hello, hipchat_user_feeling_good, \
     hipchat_user_feeling_bad
 from sarah.bot.plugins.simple_counter import hipchat_count, \
     hipchat_reset_count, reset_count
-from sarah.bot.plugins.bmw_quotes import hipchat_quote
+from sarah.bot.plugins.bmw_quotes import hipchat_quote, hipchat_scheduled_quote
 import sarah.bot.plugins.bmw_quotes
 
 
@@ -90,6 +90,11 @@ class TestBMWQuotes(object):
         assert_that(sarah.bot.plugins.bmw_quotes.quotes) \
             .described_as("Returned text is part of stored sample") \
             .contains(hipchat_quote(msg, {}))
+
+    def test_schedule(self):
+        assert_that(sarah.bot.plugins.bmw_quotes.quotes) \
+            .described_as("Scheduled message is part of stored sample") \
+            .contains(hipchat_scheduled_quote({}))
 
 
 class TestHello(object):
