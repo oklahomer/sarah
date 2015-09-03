@@ -7,7 +7,6 @@ from sarah.bot.plugins.hello import hipchat_hello, hipchat_user_feeling_good, \
 from sarah.bot.plugins.simple_counter import hipchat_count, \
     hipchat_reset_count, reset_count
 from sarah.bot.plugins.bmw_quotes import hipchat_quote, hipchat_scheduled_quote
-import sarah.bot.plugins.bmw_quotes
 
 
 class TestEcho(object):
@@ -87,14 +86,10 @@ class TestBMWQuotes(object):
         msg = CommandMessage(original_text='.bmw',
                              text='',
                              sender='123_homer@localhost/Oklahomer')
-        assert_that(sarah.bot.plugins.bmw_quotes.quotes) \
-            .described_as("Returned text is part of stored sample") \
-            .contains(hipchat_quote(msg, {}))
+        assert_that(hipchat_quote(msg, {})).is_type_of(str)
 
     def test_schedule(self):
-        assert_that(sarah.bot.plugins.bmw_quotes.quotes) \
-            .described_as("Scheduled message is part of stored sample") \
-            .contains(hipchat_scheduled_quote({}))
+        assert_that(hipchat_scheduled_quote({})).is_type_of(str)
 
 
 class TestHello(object):

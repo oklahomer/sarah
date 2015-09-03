@@ -5,6 +5,10 @@ from sarah import ValueObject
 from sarah.bot.types import CommandFunction, CommandConfig
 
 
+class RichMessage(ValueObject):
+    pass
+
+
 class InputOption(ValueObject):
     def __init__(self,
                  pattern: Union[Pattern, AnyStr],

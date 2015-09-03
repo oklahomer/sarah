@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 from assertpy import assert_that
+from sarah.bot.slack import SlackMessage
 from sarah.bot.values import CommandMessage
 from sarah.bot.plugins.bmw_quotes import slack_quote
 from sarah.bot.plugins.echo import slack_echo
 from sarah.bot.plugins.simple_counter import reset_count, slack_count, \
     slack_reset_count
-import sarah.bot.plugins.bmw_quotes
 
 
 class TestEcho(object):
@@ -84,6 +84,4 @@ class TestBMWQuotes(object):
         msg = CommandMessage(original_text='.bmw',
                              text='',
                              sender='U06TXXXXX')
-        assert_that(sarah.bot.plugins.bmw_quotes.quotes) \
-            .described_as("Returned text is part of stored sample") \
-            .contains(slack_quote(msg, {}))
+        assert_that(slack_quote(msg, {})).is_type_of(SlackMessage)
