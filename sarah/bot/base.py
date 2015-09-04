@@ -14,7 +14,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Sequence, Optional, Callable, Union
 
 from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction
-from sarah.bot.values import Command, CommandMessage, UserContext
+from sarah.bot.values import Command, CommandMessage, UserContext, RichMessage
 from sarah.thread import ThreadExecutor
 
 
@@ -124,7 +124,7 @@ class Base(object, metaclass=abc.ABCMeta):
         else:
             logging.info('Loaded plugin. %s' % module_name)
 
-    def respond(self, user_key, user_input) -> Optional[str]:
+    def respond(self, user_key, user_input) -> Union[RichMessage, str]:
         user_context = self.user_context_map.get(user_key, None)
 
         ret = None
@@ -191,7 +191,7 @@ class Base(object, metaclass=abc.ABCMeta):
             return ret.message
 
         else:
-            # String
+            # String or RichMessage
             return ret
 
     def find_command(self, text: str) -> Optional[Command]:

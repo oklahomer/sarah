@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
+import abc
 import re
 from typing import Union, Pattern, AnyStr, Callable, Sequence
 from sarah import ValueObject
 from sarah.bot.types import CommandFunction, CommandConfig
+
+
+class RichMessage(ValueObject, metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def __str__(self) -> str:
+        pass
 
 
 class InputOption(ValueObject):
@@ -27,16 +34,16 @@ class InputOption(ValueObject):
 
 class UserContext(ValueObject):
     def __init__(self,
-                 message: str,
+                 message: Union[str, RichMessage],
                  help_message: str,
                  input_options: Sequence[InputOption]) -> None:
         pass
 
     def __str__(self):
-        return self.message
+        return str(self.message)
 
     @property
-    def message(self) -> str:
+    def message(self) -> Union[str, RichMessage]:
         return self['message']
 
     @property

@@ -67,3 +67,6 @@ class ValueObject(object):
 
     def __ne__(self, other) -> bool:
         return not self.__eq__(other)
+
+    def keys(self):
+        return self.__stash.keys()

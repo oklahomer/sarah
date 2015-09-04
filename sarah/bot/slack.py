@@ -7,10 +7,11 @@ import logging
 from typing import Optional, Dict, Sequence
 import requests
 from websocket import WebSocketApp
+from sarah import ValueObject
 
 from sarah.exceptions import SarahException
 from sarah.bot import Base, concurrent
-from sarah.bot.values import Command
+from sarah.bot.values import Command, RichMessage
 from sarah.bot.types import PluginConfig
 
 
@@ -59,6 +60,91 @@ class SlackClient(object):
         return json.loads(response.content.decode())
 
 
+class AttachmentField(ValueObject):
+    def __init__(self, title: str, value: str, short: bool=None):
+        pass
+
+    def to_dict(self):
+        # Exclude empty fields
+        params = dict()
+        for param in self.keys():
+            if self[param] is None:
+                continue
+
+            params[param] = self[param]
+
+        return params
+
+
+# https://api.slack.com/docs/attachments
+class MessageAttachment(ValueObject):
+    def __init__(self,
+                 fallback: str,
+                 title: str,
+                 title_link: str=None,
+                 author_name: str=None,
+                 author_link: str=None,
+                 author_icon: str=None,
+                 fields: Sequence[AttachmentField]=None,
+                 image_url: str=None,
+                 thumb_url: str=None,
+                 pretext: str=None,
+                 color: str=None):
+        pass
+
+    def to_dict(self):
+        # Exclude empty fields
+        params = dict()
+        for param in self.keys():
+            if self[param] is None:
+                continue
+
+            params[param] = self[param]
+
+        if 'fields' in params:
+            params['fields'] = [f.to_dict() for f in params['fields']]
+
+        return params
+
+
+class SlackMessage(RichMessage):
+    def __init__(self,
+                 text: str=None,
+                 as_user: bool=True,
+                 username: str=None,
+                 parse: str="full",
+                 link_names: int=1,
+                 unfurl_links: bool=True,
+                 unfurl_media: bool=False,
+                 icon_url: str=None,
+                 icon_emoji: str=None,
+                 attachments: Sequence[MessageAttachment]=None):
+        pass
+
+    def __str__(self) -> str:
+        return self['text']
+
+    def to_dict(self):
+        # Exclude empty fields
+        params = dict()
+        for param in self.keys():
+            if self[param] is None:
+                continue
+
+            params[param] = self[param]
+
+        return params
+
+    def to_request_params(self):
+        params = self.to_dict()
+
+        if 'attachments' in params:
+            params['attachments'] = json.dumps(
+                [a.to_dict() for a in params['attachments']])
+
+        return params
+
+
 class Slack(Base):
     def __init__(self,
                  token: str='',
@@ -102,10 +188,17 @@ class Slack(Base):
 
         def job_function() -> None:
             ret = command.execute()
-            for channel in command.config['channels']:
-                self.enqueue_sending_message(self.send_message,
-                                             channel,
-                                             str(ret))
+            if isinstance(ret, SlackMessage):
+                for channel in command.config['channels']:
+                    # TODO Error handling
+                    data = dict({'channel': channel})
+                    data.update(ret.to_request_params())
+                    self.client.post('chat.postMessage', data=data)
+            else:
+                for channel in command.config['channels']:
+                    self.enqueue_sending_message(self.send_message,
+                                                 channel,
+                                                 str(ret))
 
         job_id = '%s.%s' % (command.module_name, command.name)
         logging.info("Add schedule %s" % id)
@@ -189,7 +282,12 @@ class Slack(Base):
             return
 
         ret = self.respond(content['user'], content['text'])
-        if ret:
+        if isinstance(ret, SlackMessage):
+            # TODO Error handling
+            data = dict({'channel': content["channel"]})
+            data.update(ret.to_request_params())
+            self.client.post('chat.postMessage', data=data)
+        elif isinstance(ret, str):
             return self.enqueue_sending_message(self.send_message,
                                                 content['channel'],
                                                 ret)
