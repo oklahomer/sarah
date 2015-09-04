@@ -121,6 +121,9 @@ class SlackMessage(RichMessage):
                  attachments: Sequence[MessageAttachment]=None):
         pass
 
+    def __str__(self) -> str:
+        return self['text']
+
     def to_dict(self):
         # Exclude empty fields
         params = dict()

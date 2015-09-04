@@ -84,4 +84,5 @@ class TestBMWQuotes(object):
         msg = CommandMessage(original_text='.bmw',
                              text='',
                              sender='U06TXXXXX')
-        assert_that(slack_quote(msg, {})).is_type_of(SlackMessage)
+        # assert_that(slack_quote(msg, {})).is_instance_of(SlackMessage)
+        assert_that(isinstance(slack_quote(msg, {}), SlackMessage)).is_true()
