@@ -113,10 +113,10 @@ class TestHello(object):
             .contains(hipchat_user_feeling_good.__name__,
                       hipchat_user_feeling_bad.__name__)
 
-        assert_that(response.input_options[0].next_step("Good")) \
+        assert_that(response.input_options[0].next_step("Good", {})) \
             .described_as("When 'Good,' just return text.") \
             .is_equal_to("Good to hear that.")
 
-        assert_that(response.input_options[1].next_step("Bad")) \
+        assert_that(response.input_options[1].next_step("Bad", {})) \
             .described_as("When 'Bad,' continue to ask health status") \
             .is_instance_of(UserContext)

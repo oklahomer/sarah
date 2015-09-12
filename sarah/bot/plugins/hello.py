@@ -17,12 +17,12 @@ def hipchat_hello(msg: CommandMessage, config: Dict) -> UserContext:
                            InputOption("Bad", hipchat_user_feeling_bad)))
 
 
-def hipchat_user_feeling_good(_: CommandMessage) -> str:
+def hipchat_user_feeling_good(_: CommandMessage, config: Dict) -> str:
     # Just return text to reply and end conversation.
     return "Good to hear that."
 
 
-def hipchat_user_feeling_bad(_: CommandMessage) -> UserContext:
+def hipchat_user_feeling_bad(_: CommandMessage, config: Dict) -> UserContext:
     # Return UserContext instance to continue the conversation
     return UserContext(message="Are you sick?",
                        help_message="Say Yes or No, please.",
@@ -31,9 +31,9 @@ def hipchat_user_feeling_bad(_: CommandMessage) -> UserContext:
                            InputOption("No", hipchat_user_not_sick)))
 
 
-def hipchat_user_sick(_: CommandMessage) -> str:
+def hipchat_user_sick(_: CommandMessage, config: Dict) -> str:
     return "I'm sorry to hear that. Hope you get better, soon."
 
 
-def hipchat_user_not_sick(_: CommandMessage) -> str:
+def hipchat_user_not_sick(_: CommandMessage, config: Dict) -> str:
     return "So you are just not feeling well. O.K., then."

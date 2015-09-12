@@ -147,9 +147,12 @@ class Base(object, metaclass=abc.ABCMeta):
                 return user_context.help_message
 
             try:
+                config = self.plugin_config.get(option.next_step.__module__,
+                                                {})
                 ret = option.next_step(CommandMessage(original_text=user_input,
                                                       text=user_input,
-                                                      sender=user_key))
+                                                      sender=user_key),
+                                       config)
 
                 # Only when command is successfully executed, remove current
                 # context. To forcefully abort the conversation, use ".abort"
