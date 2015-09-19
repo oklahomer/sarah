@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import abc
 import re
-from typing import Union, Pattern, AnyStr, Callable, Sequence
+from typing import Union, Pattern, AnyStr, Callable, Sequence, Dict
 from sarah import ValueObject
 from sarah.bot.types import CommandFunction, CommandConfig
 
@@ -100,3 +100,17 @@ class Command(ValueObject):
         args = list(args)
         args.append(self.config)
         return self.function(*args)
+
+
+class ScheduledCommand(Command):
+    def __init__(self,
+                 name: str,
+                 function: CommandFunction,
+                 module_name: str,
+                 config: CommandConfig,
+                 schedule_config: Dict) -> None:
+        pass
+
+    @property
+    def schedule_config(self) -> Dict:
+        return self['schedule_config']

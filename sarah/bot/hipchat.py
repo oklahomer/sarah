@@ -4,11 +4,11 @@ import logging
 
 from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional, Sequence, Callable
 
 from sarah.exceptions import SarahException
 from sarah.bot import Base, concurrent
-from sarah.bot.values import Command
+from sarah.bot.values import ScheduledCommand
 from sarah.bot.types import PluginConfig
 
 
@@ -30,8 +30,12 @@ class HipChat(Base):
         self.nick = nick
         self.client = self.setup_xmpp_client(jid, password, proxy)
 
-    def add_schedule_job(self, command: Command) -> None:
-        if 'rooms' not in command.config:
+    def generate_schedule_job(self,
+                              command: ScheduledCommand) -> Optional[Callable]:
+        # pop room configuration to leave minimal information for command
+        # argument
+        rooms = command.schedule_config.pop('rooms', None)
+        if not rooms:
             logging.warning(
                 'Missing rooms configuration for schedule job. %s. '
                 'Skipping.' % command.module_name)
@@ -39,20 +43,15 @@ class HipChat(Base):
 
         def job_function() -> None:
             ret = command.execute()
-            for room in command.config['rooms']:
-                self.enqueue_sending_message(self.client.send_message,
-                                             mto=room,
-                                             mbody=ret,
-                                             mtype=command.config.get(
-                                                 'message_type', 'groupchat'))
+            for room in rooms:
+                self.enqueue_sending_message(
+                    self.client.send_message,
+                    mto=room,
+                    mbody=ret,
+                    mtype=command.schedule_config.get('message_type',
+                                                      'groupchat'))
 
-        job_id = '%s.%s' % (command.module_name, command.name)
-        logging.info("Add schedule %s" % id)
-        self.scheduler.add_job(
-            job_function,
-            'interval',
-            id=job_id,
-            minutes=command.config.get('interval', 5))
+        return job_function
 
     def connect(self) -> None:
         if not self.client.connect():

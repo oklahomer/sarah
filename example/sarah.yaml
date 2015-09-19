@@ -12,3 +12,11 @@ hipchat:
     -
       - sarah.plugins.world_weather
       - api_key: 12345FooBar
+    -
+      - sarah.bot.plugins.bmw_quotes
+      - schedule:
+          rooms:
+            - XXXXX@localhost
+          scheduler_args:
+            trigger: interval
+            minutes: 5

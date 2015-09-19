@@ -417,7 +417,7 @@ class TestSchedule(object):
         assert_that(logging.warning.call_args) \
             .described_as("Configuration is given, "
                           "but required field is missing") \
-            .is_equal_to(call('Missing rooms configuration for schedule job. '
+            .is_equal_to(call('Missing configuration for schedule job. '
                               'sarah.bot.plugins.bmw_quotes. Skipping.'))
 
     def test_add_schedule_job(self):
@@ -425,7 +425,8 @@ class TestSchedule(object):
                           jid='test@localhost',
                           password='password',
                           plugins=(('sarah.bot.plugins.bmw_quotes',
-                                    {'rooms': ('123_homer@localhost',)}),))
+                                    {'schedule': {
+                                        'rooms': ('123_homer@localhost',)}}),))
         hipchat.connect = lambda: True
         hipchat.run()
 
