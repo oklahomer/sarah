@@ -14,7 +14,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from typing import Sequence, Optional, Callable, Union
 
 from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction
-from sarah.bot.values import Command, CommandMessage, UserContext, RichMessage
+from sarah.bot.values import Command, CommandMessage, UserContext, \
+    RichMessage, ScheduledCommand
 from sarah.thread import ThreadExecutor
 
 
@@ -24,8 +25,8 @@ class Base(object, metaclass=abc.ABCMeta):
     __instances = {}
 
     def __init__(self,
-                 plugins: Sequence[PluginConfig]=None,
-                 max_workers: Optional[int]=None) -> None:
+                 plugins: Sequence[PluginConfig] = None,
+                 max_workers: Optional[int] = None) -> None:
         if not plugins:
             plugins = ()
 
@@ -52,7 +53,7 @@ class Base(object, metaclass=abc.ABCMeta):
         self.__instances[self.__class__.__name__] = self
 
     @abc.abstractmethod
-    def add_schedule_job(self, command: Command) -> None:
+    def generate_schedule_job(self, command: ScheduledCommand) -> Callable:
         pass
 
     @abc.abstractmethod
@@ -217,13 +218,15 @@ class Base(object, metaclass=abc.ABCMeta):
             self = cls.__instances.get(cls.__name__, None)
             if self:
                 config = self.plugin_config.get(func.__module__, {})
-                if config:
+                schedule_config = config.get('schedule', None)
+                if schedule_config:
                     # If command name duplicates, update with the later one.
                     # The order stays.
-                    command = Command(name,
-                                      wrapped_function,
-                                      func.__module__,
-                                      config)
+                    command = ScheduledCommand(name,
+                                               wrapped_function,
+                                               func.__module__,
+                                               config,
+                                               schedule_config)
                     try:
                         # If command is already registered, updated it.
                         idx = [c.name for c in cls.__schedules[cls.__name__]] \
@@ -242,9 +245,20 @@ class Base(object, metaclass=abc.ABCMeta):
 
         return wrapper
 
-    def add_schedule_jobs(self, commands: Sequence[Command]) -> None:
+    def add_schedule_jobs(self, commands: Sequence[ScheduledCommand]) -> None:
         for command in commands:
-            self.add_schedule_job(command)
+            # self.add_schedule_job(command)
+            job_function = self.generate_schedule_job(command)
+            if not job_function:
+                continue
+            job_id = '%s.%s' % (command.module_name, command.name)
+            logging.info("Add schedule %s" % job_id)
+            self.scheduler.add_job(
+                job_function,
+                id=job_id,
+                **command.schedule_config.pop(
+                    'scheduler_args', {'trigger': "interval",
+                                       'minutes': 5}))
 
     @property
     def commands(self) -> OrderedDict:

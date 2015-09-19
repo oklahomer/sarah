@@ -4,14 +4,14 @@ from concurrent.futures import Future
 import json
 import logging
 
-from typing import Optional, Dict, Sequence
+from typing import Optional, Dict, Sequence, Callable
 import requests
 from websocket import WebSocketApp
 from sarah import ValueObject
 
 from sarah.exceptions import SarahException
 from sarah.bot import Base, concurrent
-from sarah.bot.values import Command, RichMessage
+from sarah.bot.values import RichMessage, ScheduledCommand
 from sarah.bot.types import PluginConfig
 
 
@@ -179,8 +179,10 @@ class Slack(Base):
                                    on_close=self.on_close)
             self.ws.run_forever()
 
-    def add_schedule_job(self, command: Command) -> None:
-        if 'channels' not in command.config:
+    def generate_schedule_job(self,
+                              command: ScheduledCommand) -> Optional[Callable]:
+        channels = command.schedule_config.pop('channels', None)
+        if not channels:
             logging.warning(
                 'Missing channels configuration for schedule job. %s. '
                 'Skipping.' % command.module_name)
@@ -189,24 +191,18 @@ class Slack(Base):
         def job_function() -> None:
             ret = command.execute()
             if isinstance(ret, SlackMessage):
-                for channel in command.config['channels']:
+                for channel in channels:
                     # TODO Error handling
                     data = dict({'channel': channel})
                     data.update(ret.to_request_params())
                     self.client.post('chat.postMessage', data=data)
             else:
-                for channel in command.config['channels']:
+                for channel in channels:
                     self.enqueue_sending_message(self.send_message,
                                                  channel,
                                                  str(ret))
 
-        job_id = '%s.%s' % (command.module_name, command.name)
-        logging.info("Add schedule %s" % id)
-        self.scheduler.add_job(
-            job_function,
-            'interval',
-            id=job_id,
-            minutes=command.config.get('interval', 5))
+        return job_function
 
     @concurrent
     def message(self, _: WebSocketApp, event: str) -> None:

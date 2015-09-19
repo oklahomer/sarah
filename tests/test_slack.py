@@ -118,8 +118,9 @@ class TestSchedule(object):
         assert_that(slack.scheduler.get_jobs()) \
             .described_as("No module is loaded") \
             .is_empty()
-        assert_that(logging.warning.call_count).is_equal_to(1)
+        assert_that(logging.warning.call_count).is_equal_to(2)
         assert_that(logging.warning.call_args) \
+            .described_as("Configuration is entirely missing.") \
             .is_equal_to(call('Missing configuration for schedule job. '
                               'sarah.bot.plugins.bmw_quotes. Skipping.'))
 
@@ -133,17 +134,17 @@ class TestSchedule(object):
         slack.connect = lambda: True
         slack.run()
 
-        assert_that(logging.warning.call_count).is_equal_to(1)
+        assert_that(logging.warning.call_count).is_true()
         assert_that(logging.warning.call_args) \
-            .is_equal_to(call('Missing channels configuration for schedule '
-                              'job. sarah.bot.plugins.bmw_quotes. Skipping.'))
+            .is_equal_to(call('Missing configuration for schedule job. '
+                              'sarah.bot.plugins.bmw_quotes. Skipping.'))
 
     def test_add_schedule_job(self):
         slack = Slack(
             token='spam_ham_egg',
             max_workers=1,
             plugins=(('sarah.bot.plugins.bmw_quotes',
-                      {'channels': 'U06TXXXXX'}),))
+                      {'schedule': {'channels': ('U06TXXXXX',)}}),))
         slack.connect = lambda: True
         slack.run()
 
