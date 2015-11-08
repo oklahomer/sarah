@@ -135,7 +135,7 @@ class SlackMessage(RichMessage):
 
         return params
 
-    def to_request_params(self):
+    def to_request_params(self) -> Dict:
         params = self.to_dict()
 
         if 'attachments' in params:
@@ -181,7 +181,7 @@ class Slack(Base):
 
     def generate_schedule_job(self,
                               command: ScheduledCommand) -> Optional[Callable]:
-        channels = command.schedule_config.pop('channels', None)
+        channels = command.schedule_config.pop('channels', [])
         if not channels:
             logging.warning(
                 'Missing channels configuration for schedule job. %s. '
@@ -193,7 +193,7 @@ class Slack(Base):
             if isinstance(ret, SlackMessage):
                 for channel in channels:
                     # TODO Error handling
-                    data = dict({'channel': channel})
+                    data = {'channel': channel}
                     data.update(ret.to_request_params())
                     self.client.post('chat.postMessage', data=data)
             else:
@@ -280,7 +280,7 @@ class Slack(Base):
         ret = self.respond(content['user'], content['text'])
         if isinstance(ret, SlackMessage):
             # TODO Error handling
-            data = dict({'channel': content["channel"]})
+            data = {'channel': content["channel"]}
             data.update(ret.to_request_params())
             self.client.post('chat.postMessage', data=data)
         elif isinstance(ret, str):
