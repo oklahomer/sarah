@@ -103,6 +103,7 @@ class Command(ValueObject):
 
 
 class ScheduledCommand(Command):
+    # noinspection PyMissingConstructor
     def __init__(self,
                  name: str,
                  function: CommandFunction,
