@@ -32,7 +32,7 @@ class TestOverride(object):
     class MyValueWithInit(ValueObject):
         def __init__(self,
                      pattern: Union[Pattern, AnyStr] = None,
-                     key1="spam"):
+                     key1="spam") -> None:
             if isinstance(pattern, str):
                 self['pattern'] = re.compile(pattern)
 

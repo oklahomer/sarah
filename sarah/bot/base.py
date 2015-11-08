@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, Future
 from functools import wraps
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from typing import Sequence, Optional, Callable, Union
+from typing import Optional, Callable, Union, Iterable
 
 from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction
 from sarah.bot.values import Command, CommandMessage, UserContext, \
@@ -25,7 +25,7 @@ class Base(object, metaclass=abc.ABCMeta):
     __instances = {}
 
     def __init__(self,
-                 plugins: Sequence[PluginConfig] = None,
+                 plugins: Iterable[PluginConfig] = None,
                  max_workers: Optional[int] = None) -> None:
         if not plugins:
             plugins = ()
@@ -247,7 +247,7 @@ class Base(object, metaclass=abc.ABCMeta):
 
         return wrapper
 
-    def add_schedule_jobs(self, commands: Sequence[ScheduledCommand]) -> None:
+    def add_schedule_jobs(self, commands: Iterable[ScheduledCommand]) -> None:
         for command in commands:
             # self.add_schedule_job(command)
             job_function = self.generate_schedule_job(command)

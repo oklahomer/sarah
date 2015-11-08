@@ -5,7 +5,7 @@ import os
 from multiprocessing import Process
 
 import yaml
-from typing import Dict, Sequence
+from typing import Dict, Iterable
 
 from sarah.bot.hipchat import HipChat
 from sarah.bot.slack import Slack
@@ -15,7 +15,7 @@ from sarah.exceptions import SarahException
 
 class Sarah(object):
     def __init__(self,
-                 config_paths: Sequence[Path]) -> None:
+                 config_paths: Iterable[Path]) -> None:
 
         self.config = self.load_config(config_paths)
 
@@ -33,7 +33,7 @@ class Sarah(object):
             slack_process.start()
 
     @staticmethod
-    def load_config(paths: Sequence[Path]) -> Dict:
+    def load_config(paths: Iterable[Path]) -> Dict:
         config = {}
 
         if not paths:

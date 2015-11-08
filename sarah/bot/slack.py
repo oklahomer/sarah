@@ -5,7 +5,7 @@ import logging
 from concurrent.futures import Future
 
 import requests
-from typing import Optional, Dict, Sequence, Callable
+from typing import Optional, Dict, Callable, Iterable
 from websocket import WebSocketApp
 
 from sarah import ValueObject
@@ -85,7 +85,7 @@ class MessageAttachment(ValueObject):
                  author_name: str = None,
                  author_link: str = None,
                  author_icon: str = None,
-                 fields: Sequence[AttachmentField] = None,
+                 fields: Iterable[AttachmentField] = None,
                  image_url: str = None,
                  thumb_url: str = None,
                  pretext: str = None,
@@ -118,7 +118,7 @@ class SlackMessage(RichMessage):
                  unfurl_media: bool = False,
                  icon_url: str = None,
                  icon_emoji: str = None,
-                 attachments: Sequence[MessageAttachment] = None):
+                 attachments: Iterable[MessageAttachment] = None):
         pass
 
     def __str__(self) -> str:
@@ -148,7 +148,7 @@ class SlackMessage(RichMessage):
 class Slack(Base):
     def __init__(self,
                  token: str = '',
-                 plugins: Sequence[PluginConfig] = None,
+                 plugins: Iterable[PluginConfig] = None,
                  max_workers: int = None) -> None:
 
         super().__init__(plugins=plugins, max_workers=max_workers)
