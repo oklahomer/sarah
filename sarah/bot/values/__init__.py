@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import abc
 import re
-from typing import Union, Pattern, AnyStr, Callable, Sequence, Dict
+
+from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable
+
 from sarah import ValueObject
 from sarah.bot.types import CommandFunction, CommandConfig
 
@@ -16,7 +18,6 @@ class InputOption(ValueObject):
     def __init__(self,
                  pattern: Union[Pattern, AnyStr],
                  next_step: Callable) -> None:
-
         if isinstance(pattern, str):
             self['pattern'] = re.compile(pattern)
 
@@ -36,7 +37,7 @@ class UserContext(ValueObject):
     def __init__(self,
                  message: Union[str, RichMessage],
                  help_message: str,
-                 input_options: Sequence[InputOption]) -> None:
+                 input_options: Iterable[InputOption]) -> None:
         pass
 
     def __str__(self):
@@ -51,7 +52,7 @@ class UserContext(ValueObject):
         return self['help_message']
 
     @property
-    def input_options(self) -> Sequence[InputOption]:
+    def input_options(self) -> Iterable[InputOption]:
         return self['input_options']
 
 
@@ -103,6 +104,7 @@ class Command(ValueObject):
 
 
 class ScheduledCommand(Command):
+    # noinspection PyMissingConstructor
     def __init__(self,
                  name: str,
                  function: CommandFunction,

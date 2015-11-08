@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
 # https://api.slack.com/rtm
-from concurrent.futures import Future
 import json
 import logging
+from concurrent.futures import Future
 
-from typing import Optional, Dict, Sequence, Callable
 import requests
+from typing import Optional, Dict, Callable, Iterable
 from websocket import WebSocketApp
-from sarah import ValueObject
 
-from sarah.exceptions import SarahException
+from sarah import ValueObject
 from sarah.bot import Base, concurrent
-from sarah.bot.values import RichMessage, ScheduledCommand
 from sarah.bot.types import PluginConfig
+from sarah.bot.values import RichMessage, ScheduledCommand
+from sarah.exceptions import SarahException
 
 
 class SlackClient(object):
     def __init__(self,
                  token: str,
-                 base_url: str='https://slack.com/api/') -> None:
+                 base_url: str = 'https://slack.com/api/') -> None:
         self.base_url = base_url
         self.token = token
 
@@ -36,8 +36,8 @@ class SlackClient(object):
     def request(self,
                 http_method: str,
                 method: str,
-                params: Dict=None,
-                data: Dict=None) -> Dict:
+                params: Dict = None,
+                data: Dict = None) -> Dict:
         http_method = http_method.upper()
         endpoint = self.generate_endpoint(method)
 
@@ -61,7 +61,7 @@ class SlackClient(object):
 
 
 class AttachmentField(ValueObject):
-    def __init__(self, title: str, value: str, short: bool=None):
+    def __init__(self, title: str, value: str, short: bool = None):
         pass
 
     def to_dict(self):
@@ -81,15 +81,15 @@ class MessageAttachment(ValueObject):
     def __init__(self,
                  fallback: str,
                  title: str,
-                 title_link: str=None,
-                 author_name: str=None,
-                 author_link: str=None,
-                 author_icon: str=None,
-                 fields: Sequence[AttachmentField]=None,
-                 image_url: str=None,
-                 thumb_url: str=None,
-                 pretext: str=None,
-                 color: str=None):
+                 title_link: str = None,
+                 author_name: str = None,
+                 author_link: str = None,
+                 author_icon: str = None,
+                 fields: Iterable[AttachmentField] = None,
+                 image_url: str = None,
+                 thumb_url: str = None,
+                 pretext: str = None,
+                 color: str = None):
         pass
 
     def to_dict(self):
@@ -109,16 +109,16 @@ class MessageAttachment(ValueObject):
 
 class SlackMessage(RichMessage):
     def __init__(self,
-                 text: str=None,
-                 as_user: bool=True,
-                 username: str=None,
-                 parse: str="full",
-                 link_names: int=1,
-                 unfurl_links: bool=True,
-                 unfurl_media: bool=False,
-                 icon_url: str=None,
-                 icon_emoji: str=None,
-                 attachments: Sequence[MessageAttachment]=None):
+                 text: str = None,
+                 as_user: bool = True,
+                 username: str = None,
+                 parse: str = "full",
+                 link_names: int = 1,
+                 unfurl_links: bool = True,
+                 unfurl_media: bool = False,
+                 icon_url: str = None,
+                 icon_emoji: str = None,
+                 attachments: Iterable[MessageAttachment] = None):
         pass
 
     def __str__(self) -> str:
@@ -135,7 +135,7 @@ class SlackMessage(RichMessage):
 
         return params
 
-    def to_request_params(self):
+    def to_request_params(self) -> Dict:
         params = self.to_dict()
 
         if 'attachments' in params:
@@ -147,9 +147,9 @@ class SlackMessage(RichMessage):
 
 class Slack(Base):
     def __init__(self,
-                 token: str='',
-                 plugins: Sequence[PluginConfig]=None,
-                 max_workers: int=None) -> None:
+                 token: str = '',
+                 plugins: Iterable[PluginConfig] = None,
+                 max_workers: int = None) -> None:
 
         super().__init__(plugins=plugins, max_workers=max_workers)
 
@@ -181,7 +181,7 @@ class Slack(Base):
 
     def generate_schedule_job(self,
                               command: ScheduledCommand) -> Optional[Callable]:
-        channels = command.schedule_config.pop('channels', None)
+        channels = command.schedule_config.pop('channels', [])
         if not channels:
             logging.warning(
                 'Missing channels configuration for schedule job. %s. '
@@ -193,7 +193,7 @@ class Slack(Base):
             if isinstance(ret, SlackMessage):
                 for channel in channels:
                     # TODO Error handling
-                    data = dict({'channel': channel})
+                    data = {'channel': channel}
                     data.update(ret.to_request_params())
                     self.client.post('chat.postMessage', data=data)
             else:
@@ -280,7 +280,7 @@ class Slack(Base):
         ret = self.respond(content['user'], content['text'])
         if isinstance(ret, SlackMessage):
             # TODO Error handling
-            data = dict({'channel': content["channel"]})
+            data = {'channel': content["channel"]}
             data.update(ret.to_request_params())
             self.client.post('chat.postMessage', data=data)
         elif isinstance(ret, str):
@@ -300,7 +300,7 @@ class Slack(Base):
     def send_message(self,
                      channel: str,
                      text: str,
-                     message_type: str='message') -> None:
+                     message_type: str = 'message') -> None:
         params = {'channel': channel,
                   'text': text,
                   'type': message_type,

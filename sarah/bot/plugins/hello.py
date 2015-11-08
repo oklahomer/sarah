@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from typing import Dict
-from sarah.bot.values import CommandMessage, UserContext, InputOption
 
 from sarah.bot.hipchat import HipChat
+from sarah.bot.values import CommandMessage, UserContext, InputOption
 
 
 # noinspection PyUnusedLocal

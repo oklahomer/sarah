@@ -1,32 +1,30 @@
 # -*- coding: utf-8 -*-
-from concurrent.futures import Future
 import logging
+from concurrent.futures import Future
 
 from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
-from typing import Dict, Optional, Sequence, Callable
+from typing import Dict, Optional, Callable, Iterable
 
-from sarah.exceptions import SarahException
 from sarah.bot import Base, concurrent
-from sarah.bot.values import ScheduledCommand
 from sarah.bot.types import PluginConfig
+from sarah.bot.values import ScheduledCommand
+from sarah.exceptions import SarahException
 
 
 class HipChat(Base):
     def __init__(self,
-                 plugins: Sequence[PluginConfig]=None,
-                 jid: str='',
-                 password: str='',
-                 rooms: Sequence[str]=None,
-                 nick: str='',
-                 proxy: Dict=None,
-                 max_workers: int=None) -> None:
+                 plugins: Iterable[PluginConfig] = None,
+                 jid: str = '',
+                 password: str = '',
+                 rooms: Iterable[str] = None,
+                 nick: str = '',
+                 proxy: Dict = None,
+                 max_workers: int = None) -> None:
 
         super().__init__(plugins=plugins, max_workers=max_workers)
 
-        if not rooms:
-            rooms = []
-        self.rooms = rooms
+        self.rooms = rooms if rooms else []  # type: Iterable[str]
         self.nick = nick
         self.client = self.setup_xmpp_client(jid, password, proxy)
 
@@ -34,7 +32,7 @@ class HipChat(Base):
                               command: ScheduledCommand) -> Optional[Callable]:
         # pop room configuration to leave minimal information for command
         # argument
-        rooms = command.schedule_config.pop('rooms', None)
+        rooms = command.schedule_config.pop('rooms', [])
         if not rooms:
             logging.warning(
                 'Missing rooms configuration for schedule job. %s. '
@@ -61,7 +59,7 @@ class HipChat(Base):
     def setup_xmpp_client(self,
                           jid: str,
                           password: str,
-                          proxy: Dict=None) -> ClientXMPP:
+                          proxy: Dict = None) -> ClientXMPP:
         client = ClientXMPP(jid, password)
 
         if proxy:

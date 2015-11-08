@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 # noinspection PyProtectedMember
-from concurrent.futures.thread import _WorkItem as WorkItem
-from concurrent.futures import Executor, Future
+import atexit
 import logging
-from queue import Queue
 import threading
 import weakref
-import atexit
+from concurrent.futures import Executor, Future
+from concurrent.futures.thread import _WorkItem as WorkItem
+from queue import Queue
 
 # Provide the same interface as ThreadPoolExecutor, but create only on thread.
 # Worker is created as daemon thread. This is done to allow the interpreter to
