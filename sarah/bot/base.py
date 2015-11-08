@@ -211,7 +211,7 @@ class Base(object, metaclass=abc.ABCMeta):
         def wrapper(func: CommandFunction) -> None:
 
             @wraps(func)
-            def wrapped_function(*args, **kwargs) -> str:
+            def wrapped_function(*args, **kwargs) -> Union[str, RichMessage]:
                 return func(*args, **kwargs)
 
             module = inspect.getmodule(func)

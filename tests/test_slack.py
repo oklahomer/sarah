@@ -68,7 +68,7 @@ class TestInit(object):
                           'request',
                           side_effect=Exception) as mock_connect:
             with pytest.raises(SarahSlackException) as e:
-                slack.connect()
+                slack.try_connect()
 
             assert_that(str(e)).matches("Slack request error on /rtm.start\.")
             assert_that(mock_connect.call_count).is_equal_to(1)
@@ -82,11 +82,10 @@ class TestInit(object):
                           'get',
                           return_value={"dummy": "spam"}) as mock_connect:
             with pytest.raises(SarahSlackException) as e:
-                slack.connect()
+                slack.try_connect()
 
             assert_that(mock_connect.call_count).is_equal_to(1)
-            assert_that(str(e)).matches("Slack response did not contain "
-                                        "connecting url. {'dummy': 'spam'}")
+            assert_that(str(e)).matches("Slack request error on /rtm.start")
 
     def test_connection_ok(self):
         slack = Slack(token='spam_ham_egg',
@@ -99,7 +98,7 @@ class TestInit(object):
             with patch.object(sarah.bot.slack.WebSocketApp,
                               'run_forever',
                               return_value=True) as mock_connect:
-                slack.connect()
+                slack.try_connect()
 
                 assert_that(mock_connect.call_count).is_equal_to(1)
 

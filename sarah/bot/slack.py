@@ -3,11 +3,10 @@
 import json
 import logging
 from concurrent.futures import Future
-
 import requests
+import time
 from typing import Optional, Dict, Callable, Iterable
 from websocket import WebSocketApp
-
 from sarah import ValueObject
 from sarah.bot import Base, concurrent
 from sarah.bot.types import PluginConfig
@@ -156,22 +155,33 @@ class Slack(Base):
         self.client = self.setup_client(token=token)
         self.message_id = 0
         self.ws = None
+        self.connect_attempt_count = 0
 
     def setup_client(self, token: str) -> SlackClient:
         return SlackClient(token=token)
 
     def connect(self) -> None:
+        while True:
+            if self.connect_attempt_count > 10:
+                logging.error("Attempted 10 times, but all failed. Quitting.")
+                break
+
+            try:
+                self.connect_attempt_count += 1
+                self.try_connect()
+                time.sleep(self.connect_attempt_count)
+            except Exception as e:
+                logging.error(e)
+
+    def try_connect(self) -> None:
         try:
             response = self.client.get('rtm.start')
+            if 'url' not in response:
+                raise Exception("url is not in the response. %s" % response)
         except Exception as e:
             raise SarahSlackException(
                 "Slack request error on /rtm.start. %s" % e)
         else:
-            if 'url' not in response:
-                raise SarahSlackException(
-                    "Slack response did not contain connecting url. %s" %
-                    response)
-
             self.ws = WebSocketApp(response['url'],
                                    on_message=self.message,
                                    on_error=self.on_error,
@@ -224,19 +234,26 @@ class Slack(Base):
 
         # TODO organize
         type_map = {
-            'hello': {'method': self.handle_hello,
-                      'description': 'The client has successfully connected '
-                                     'to the server'},
-            'message': {'method': self.handle_message,
-                        'description': 'A message was sent to a channel'},
-            'user_typing': {'description': 'A channel member is typing a '
-                                           'message'}}
+            'hello': {
+                'method': self.handle_hello,
+                'description': "The client has successfully connected to the "
+                               "server"},
+            'message': {
+                'method': self.handle_message,
+                'description': "A message was sent to a channel"},
+            'user_typing': {
+                'description': "A channel member is typing a message"},
+            'presence_change': {
+                'description': "A team member's presence changed"},
+            'team_migration_started': {
+                'method': self.handle_team_migration,
+                'description': "The team is being migrated between servers"}}
 
         if 'type' not in decoded_event:
             # https://api.slack.com/rtm#events
             # Every event has a type property which describes the type of
             # event.
-            logging.error('Given event doesn\'t have type property. %s' %
+            logging.error("Given event doesn't have type property. %s" %
                           event)
             return
 
@@ -256,6 +273,7 @@ class Slack(Base):
             return
 
     def handle_hello(self, _: Dict) -> None:
+        self.connect_attempt_count = 0  # Reset retry count
         logging.info('Successfully connected to the server.')
 
     def handle_message(self, content: Dict) -> Optional[Future]:
@@ -288,14 +306,20 @@ class Slack(Base):
                                                 content['channel'],
                                                 ret)
 
-    def on_error(self, _: WebSocketApp, error) -> None:
-        logging.error(error)
+    def handle_team_migration(self, _: Dict) -> None:
+        # https://api.slack.com/events/team_migration_started
+        # "When clients recieve this event they can immediately start a
+        # reconnection process by calling rtm.start again."
+        logging.info("Team migration started.")
+
+    def on_error(self, _: WebSocketApp, error: Exception) -> None:
+        logging.error("error %s", error)
 
     def on_open(self, _: WebSocketApp) -> None:
         logging.info('connected')
 
-    def on_close(self, _: WebSocketApp) -> None:
-        logging.info('closed')
+    def on_close(self, _: WebSocketApp, code: int, reason: str) -> None:
+        logging.info('connection closed. code: %d. reason: %s', code, reason)
 
     def send_message(self,
                      channel: str,
