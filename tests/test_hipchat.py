@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 import concurrent
-from concurrent.futures import ALL_COMPLETED
-from time import sleep
 import logging
 import types
+from concurrent.futures import ALL_COMPLETED
+from time import sleep
 
 import pytest
-from sleekxmpp import ClientXMPP
-from sleekxmpp.test import TestSocket
-from sleekxmpp.stanza import Message
-from sleekxmpp.exceptions import IqTimeout, IqError
-from sleekxmpp.xmlstream import JID
-from mock import MagicMock, call, patch
 from assertpy import assert_that
+from mock import MagicMock, call, patch
+from sleekxmpp import ClientXMPP
+from sleekxmpp.exceptions import IqTimeout, IqError
+from sleekxmpp.stanza import Message
+from sleekxmpp.test import TestSocket
+from sleekxmpp.xmlstream import JID
 
-from sarah.bot.values import UserContext, CommandMessage, Command
-from sarah.bot.hipchat import HipChat, SarahHipChatException
 import sarah.bot.plugins.simple_counter
+from sarah.bot.hipchat import HipChat, SarahHipChatException
+from sarah.bot.values import UserContext, CommandMessage, Command
 
 
 # noinspection PyProtectedMember

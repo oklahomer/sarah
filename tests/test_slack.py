@@ -2,9 +2,8 @@
 import logging
 import types
 
-from assertpy import assert_that
-
 import pytest
+from assertpy import assert_that
 from mock import patch, MagicMock, call
 
 import sarah

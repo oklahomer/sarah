@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-from assertpy import assert_that
-import pytest
-from typing import Union, AnyStr, Pattern
-from sarah import ValueObject
 import re
+
+import pytest
+from assertpy import assert_that
+from typing import Union, AnyStr, Pattern
+
+from sarah import ValueObject
 
 
 class TestInit(object):
@@ -28,7 +30,9 @@ class TestInit(object):
 
 class TestOverride(object):
     class MyValueWithInit(ValueObject):
-        def __init__(self, pattern: Union[Pattern, AnyStr]=None, key1="spam"):
+        def __init__(self,
+                     pattern: Union[Pattern, AnyStr] = None,
+                     key1="spam"):
             if isinstance(pattern, str):
                 self['pattern'] = re.compile(pattern)
 

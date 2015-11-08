@@ -1,25 +1,26 @@
 # -*- coding: utf-8 -*-
-from concurrent.futures import Future
 import logging
+from concurrent.futures import Future
 
 from sleekxmpp import ClientXMPP, Message
 from sleekxmpp.exceptions import IqTimeout, IqError
 from typing import Dict, Optional, Callable, Iterable
-from sarah.exceptions import SarahException
+
 from sarah.bot import Base, concurrent
-from sarah.bot.values import ScheduledCommand
 from sarah.bot.types import PluginConfig
+from sarah.bot.values import ScheduledCommand
+from sarah.exceptions import SarahException
 
 
 class HipChat(Base):
     def __init__(self,
-                 plugins: Iterable[PluginConfig]=None,
-                 jid: str='',
-                 password: str='',
-                 rooms: Iterable[str]=None,
-                 nick: str='',
-                 proxy: Dict=None,
-                 max_workers: int=None) -> None:
+                 plugins: Iterable[PluginConfig] = None,
+                 jid: str = '',
+                 password: str = '',
+                 rooms: Iterable[str] = None,
+                 nick: str = '',
+                 proxy: Dict = None,
+                 max_workers: int = None) -> None:
 
         super().__init__(plugins=plugins, max_workers=max_workers)
 
@@ -58,7 +59,7 @@ class HipChat(Base):
     def setup_xmpp_client(self,
                           jid: str,
                           password: str,
-                          proxy: Dict=None) -> ClientXMPP:
+                          proxy: Dict = None) -> ClientXMPP:
         client = ClientXMPP(jid, password)
 
         if proxy:

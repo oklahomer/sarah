@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 import abc
-import inspect
-from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor, Future
-from functools import wraps
 import imp
 import importlib
+import inspect
 import logging
 import re
 import sys
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor, Future
+from functools import wraps
 
 from apscheduler.schedulers.background import BackgroundScheduler
-
 from typing import Sequence, Optional, Callable, Union
 
 from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction

@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from multiprocessing import Process
 import os
+from multiprocessing import Process
 
-from typing import Dict, Sequence
 import yaml
+from typing import Dict, Sequence
 
 from sarah.bot.hipchat import HipChat
 from sarah.bot.slack import Slack
-from sarah.exceptions import SarahException
 from sarah.bot.types import Path
+from sarah.exceptions import SarahException
 
 
 class Sarah(object):

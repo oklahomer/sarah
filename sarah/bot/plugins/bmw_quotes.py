@@ -2,10 +2,10 @@
 import random
 
 from typing import Dict
-from sarah.bot.values import CommandMessage
+
 from sarah.bot.hipchat import HipChat
 from sarah.bot.slack import Slack, SlackMessage, MessageAttachment
-
+from sarah.bot.values import CommandMessage
 
 # http://www.imdb.com/title/tt0105958/quotes
 quotes = ([('Eric', "So i said to myself, 'Kyle'"),

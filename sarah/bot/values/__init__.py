@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import abc
 import re
+
 from typing import Union, Pattern, AnyStr, Callable, Sequence, Dict
+
 from sarah import ValueObject
 from sarah.bot.types import CommandFunction, CommandConfig
 
@@ -16,7 +18,6 @@ class InputOption(ValueObject):
     def __init__(self,
                  pattern: Union[Pattern, AnyStr],
                  next_step: Callable) -> None:
-
         if isinstance(pattern, str):
             self['pattern'] = re.compile(pattern)
 

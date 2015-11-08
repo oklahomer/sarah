@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
-from assertpy import assert_that
 
 import pytest
+from assertpy import assert_that
 
 from sarah.main import Sarah, SarahException
 
@@ -24,6 +24,6 @@ class TestInit(object):
         with pytest.raises(SarahException) as e:
             Sarah(config_paths=non_existing_paths)
 
-        assert_that(str(e))\
-            .contains('Configuration file does not exist')\
+        assert_that(str(e)) \
+            .contains('Configuration file does not exist') \
             .contains(non_existing_paths[0])
