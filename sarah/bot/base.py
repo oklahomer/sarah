@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import abc
+import inspect
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, Future
 from functools import wraps
@@ -214,17 +215,19 @@ class Base(object, metaclass=abc.ABCMeta):
             def wrapped_function(*args, **kwargs) -> str:
                 return func(*args, **kwargs)
 
-            # Register only if bot is instantiated.
+            module = inspect.getmodule(func)
             self = cls.__instances.get(cls.__name__, None)
-            if self:
-                config = self.plugin_config.get(func.__module__, {})
+            # Register only if bot is instantiated.
+            if self and module:
+                module_name = module.__name__
+                config = self.plugin_config.get(module_name, {})
                 schedule_config = config.get('schedule', None)
                 if schedule_config:
                     # If command name duplicates, update with the later one.
                     # The order stays.
                     command = ScheduledCommand(name,
                                                wrapped_function,
-                                               func.__module__,
+                                               module_name,
                                                config,
                                                schedule_config)
                     try:
@@ -238,7 +241,7 @@ class Base(object, metaclass=abc.ABCMeta):
                 else:
                     logging.warning(
                         'Missing configuration for schedule job. %s. '
-                        'Skipping.' % func.__module__)
+                        'Skipping.' % module_name)
 
             # To ease plugin's unit test
             return wrapped_function
@@ -273,14 +276,16 @@ class Base(object, metaclass=abc.ABCMeta):
             def wrapped_function(*args, **kwargs) -> Union[str, UserContext]:
                 return func(*args, **kwargs)
 
-            # Register only if bot is instantiated.
+            module = inspect.getmodule(func)
             self = cls.__instances.get(cls.__name__, None)
-            if self:
-                config = self.plugin_config.get(func.__module__, {})
+            # Register only if bot is instantiated.
+            if self and module:
+                module_name = module.__name__
+                config = self.plugin_config.get(module_name, {})
                 # If command name duplicates, update with the later one.
                 # The order stays.
 
-                command = Command(name, func, func.__module__, config)
+                command = Command(name, func, module_name, config)
                 try:
                     # If command is already registered, updated it.
                     idx = [c.name for c in cls.__commands[cls.__name__]] \
