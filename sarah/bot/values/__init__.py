@@ -97,7 +97,7 @@ class Command(ValueObject):
     def config(self):
         return self['config']
 
-    def execute(self, *args) -> Union[UserContext, str]:
+    def execute(self, *args) -> Union[UserContext, RichMessage, str]:
         args = list(args)
         args.append(self.config)
         return self.function(*args)

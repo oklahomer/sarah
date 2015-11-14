@@ -10,7 +10,7 @@ __stash = {'hipchat': {},
 
 
 def count(bot_type: str, user_key: str, key: str) -> int:
-    stash = __stash[bot_type]
+    stash = __stash[bot_type]  # type: Dict[str, Dict[str, int]]
     if user_key not in stash:
         stash[user_key] = {}
 
