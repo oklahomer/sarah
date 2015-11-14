@@ -31,7 +31,7 @@ class TestInit(object):
 class TestOverride(object):
     class MyValueWithInit(ValueObject):
         def __init__(self,
-                     pattern: Union[Pattern, AnyStr, None],
+                     pattern: Union[Pattern[str], AnyStr],
                      key1="spam") -> None:
             if isinstance(pattern, str):
                 self['pattern'] = re.compile(pattern)
