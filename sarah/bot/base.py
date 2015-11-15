@@ -128,6 +128,9 @@ class Base(object, metaclass=abc.ABCMeta):
     def respond(self, user_key, user_input) -> Union[RichMessage, str]:
         user_context = self.user_context_map.get(user_key, None)
 
+        if user_input == '.help':
+            return self.help()
+
         ret = None
         error = []
         if user_context:
@@ -202,6 +205,12 @@ class Base(object, metaclass=abc.ABCMeta):
         return next((c for c in self.commands if text.startswith(c.name)),
                     None)
 
+    # Override this method to display rich help message
+    def help(self):
+        return "\n".join(
+            [(c.name + ": " + ", ".join(c.examples) if c.examples else c.name)
+             for c in self.commands])
+
     @property
     def schedules(self) -> OrderedDict:
         return self.__schedules.get(self.__class__.__name__, OrderedDict())
@@ -267,8 +276,10 @@ class Base(object, metaclass=abc.ABCMeta):
         return self.__commands.get(self.__class__.__name__, [])
 
     @classmethod
-    def command(cls, name: str) -> Callable[[CommandFunction],
-                                            CommandFunction]:
+    def command(cls,
+                name: str,
+                examples: Iterable[str] = None) \
+            -> Callable[[CommandFunction], CommandFunction]:
 
         def wrapper(func: CommandFunction) -> CommandFunction:
             @wraps(func)
@@ -284,7 +295,7 @@ class Base(object, metaclass=abc.ABCMeta):
                 # If command name duplicates, update with the later one.
                 # The order stays.
 
-                command = Command(name, func, module_name, config)
+                command = Command(name, func, module_name, config, examples)
                 try:
                     # If command is already registered, updated it.
                     idx = [c.name for c in cls.__commands[cls.__name__]] \
