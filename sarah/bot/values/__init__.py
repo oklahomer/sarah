@@ -78,7 +78,8 @@ class Command(ValueObject):
                  name: str,
                  function: CommandFunction,
                  module_name: str,
-                 config: CommandConfig) -> None:
+                 config: CommandConfig,
+                 examples: Iterable[str] = None) -> None:
         pass
 
     @property
@@ -97,13 +98,17 @@ class Command(ValueObject):
     def config(self):
         return self['config']
 
+    @property
+    def examples(self):
+        return self['examples']
+
     def execute(self, *args) -> Union[UserContext, RichMessage, str]:
         args = list(args)
         args.append(self.config)
         return self.function(*args)
 
 
-class ScheduledCommand(Command):
+class ScheduledCommand(ValueObject):
     # noinspection PyMissingConstructor
     def __init__(self,
                  name: str,
@@ -114,5 +119,26 @@ class ScheduledCommand(Command):
         pass
 
     @property
+    def name(self):
+        return self['name']
+
+    @property
+    def function(self):
+        return self['function']
+
+    @property
+    def module_name(self):
+        return self['module_name']
+
+    @property
+    def config(self):
+        return self['config']
+
+    @property
     def schedule_config(self) -> Dict:
         return self['schedule_config']
+
+    def execute(self, *args) -> Union[RichMessage, str]:
+        args = list(args)
+        args.append(self.config)
+        return self.function(*args)

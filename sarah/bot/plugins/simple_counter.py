@@ -25,7 +25,7 @@ def reset_count(bot_type: str) -> None:
 
 
 # noinspection PyUnusedLocal
-@HipChat.command('.count')
+@HipChat.command('.count', ['.count beer'])
 def hipchat_count(msg: CommandMessage, config: Dict) -> str:
     return str(count('hipchat', msg.sender, msg.text))
 
@@ -38,7 +38,7 @@ def hipchat_reset_count(msg: CommandMessage, config: Dict) -> str:
 
 
 # noinspection PyUnusedLocal
-@Slack.command('.count')
+@Slack.command('.count', ['.count beer'])
 def slack_count(msg: CommandMessage, config: Dict) -> str:
     return str(count('slack', msg.sender, msg.text))
 
