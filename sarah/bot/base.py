@@ -12,7 +12,6 @@ from functools import wraps
 
 from apscheduler.schedulers import background  # type: ignore
 from typing import Optional, Callable, Union, Iterable, List, Any
-from sarah.bot.types import PluginConfig, ScheduledFunction, CommandFunction
 
 try:
     from typing import Dict, Tuple
@@ -27,7 +26,8 @@ except AssertionError:
     pass
 
 from sarah.bot.values import Command, CommandMessage, UserContext, \
-    ScheduledCommand, RichMessage
+    ScheduledCommand, RichMessage, PluginConfig, CommandFunction, \
+    ScheduledFunction
 from sarah.thread import ThreadExecutor
 
 

@@ -1,20 +1,11 @@
 # -*- coding: utf-8 -*-
 import abc
 import re
+
 from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable, Any, \
-    Optional, Match
+    Optional, Match, Tuple
+
 from sarah import ValueObject
-
-try:
-    from sarah.bot import types
-
-    # Work-around to avoid pyflakes warning "imported but unused" regarding
-    # mypy's comment-styled type hinting
-    # http://www.laurivan.com/make-pyflakespylint-ignore-unused-imports/
-    # http://stackoverflow.com/questions/5033727/how-do-i-get-pyflakes-to-ignore-a-statement/12121404#12121404
-    assert types
-except AssertionError:
-    pass
 
 
 class RichMessage(ValueObject, metaclass=abc.ABCMeta):
@@ -82,12 +73,19 @@ class CommandMessage(ValueObject):
         return self['sender']
 
 
+CommandFunction = Callable[
+    ...,
+    Union[str, RichMessage, UserContext]]
+
+CommandConfig = Dict[str, Any]
+
+
 class Command(ValueObject):
     def __init__(self,
                  name: str,
-                 function: 'types.CommandFunction',
+                 function: CommandFunction,
                  module_name: str,
-                 config: 'types.CommandConfig',
+                 config: CommandConfig,
                  examples: Iterable[str] = None) -> None:
         pass
 
@@ -116,13 +114,16 @@ class Command(ValueObject):
         return self.function(command_message, self.config)
 
 
+ScheduledFunction = Callable[..., Union[str, RichMessage]]
+
+
 class ScheduledCommand(ValueObject):
     # noinspection PyMissingConstructor
     def __init__(self,
                  name: str,
-                 function: 'types.ScheduledFunction',
+                 function: ScheduledFunction,
                  module_name: str,
-                 config: 'types.CommandConfig',
+                 config: CommandConfig,
                  schedule_config: Dict) -> None:
         pass
 
@@ -148,3 +149,6 @@ class ScheduledCommand(ValueObject):
 
     def execute(self) -> Union[RichMessage, str]:
         return self.function(self.config)
+
+
+PluginConfig = Tuple[str, Optional[Dict]]

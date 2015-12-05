@@ -10,8 +10,7 @@ from typing import Optional, Dict, Callable, Iterable
 from websocket import WebSocketApp  # type: ignore
 from sarah import ValueObject
 from sarah.bot import Base, concurrent
-from sarah.bot.types import PluginConfig
-from sarah.bot.values import ScheduledCommand, RichMessage
+from sarah.bot.values import ScheduledCommand, RichMessage, PluginConfig
 from sarah.exceptions import SarahException
 
 try:

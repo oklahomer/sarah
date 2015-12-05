@@ -7,8 +7,7 @@ from sleekxmpp.exceptions import IqTimeout, IqError  # type: ignore
 from typing import Dict, Optional, Callable, Iterable
 
 from sarah.bot import Base, concurrent
-from sarah.bot.types import PluginConfig
-from sarah.bot.values import ScheduledCommand
+from sarah.bot.values import ScheduledCommand, PluginConfig
 from sarah.exceptions import SarahException
 
 
