@@ -2,10 +2,10 @@
 # noinspection PyProtectedMember
 import atexit
 import logging
-import threading
+import threading  # type: ignore
 import weakref
-from concurrent.futures import Executor, Future
-from concurrent.futures.thread import _WorkItem as WorkItem
+from concurrent.futures import Executor, Future  # type: ignore
+from concurrent.futures.thread import _WorkItem as WorkItem  # type: ignore
 from queue import Queue
 
 # Provide the same interface as ThreadPoolExecutor, but create only on thread.

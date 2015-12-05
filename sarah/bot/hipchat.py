@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
-from concurrent.futures import Future
+from concurrent.futures import Future  # type: ignore
 
-from sleekxmpp import ClientXMPP, Message
-from sleekxmpp.exceptions import IqTimeout, IqError
+from sleekxmpp import ClientXMPP, Message  # type: ignore
+from sleekxmpp.exceptions import IqTimeout, IqError  # type: ignore
 from typing import Dict, Optional, Callable, Iterable
 
 from sarah.bot import Base, concurrent
@@ -29,7 +29,8 @@ class HipChat(Base):
         self.client = self.setup_xmpp_client(jid, password, proxy)
 
     def generate_schedule_job(self,
-                              command: ScheduledCommand) -> Optional[Callable]:
+                              command: ScheduledCommand)\
+            -> Optional[Callable[..., None]]:
         # pop room configuration to leave minimal information for command
         # argument
         rooms = command.schedule_config.pop('rooms', [])
@@ -37,7 +38,7 @@ class HipChat(Base):
             logging.warning(
                 'Missing rooms configuration for schedule job. %s. '
                 'Skipping.' % command.module_name)
-            return
+            return None
 
         def job_function() -> None:
             ret = command.execute()
@@ -126,7 +127,7 @@ class HipChat(Base):
             #
             # FYI: When resource part of bot JabberID is 'bot' such as
             # 12_34@chat.example.com/bot, HipChat won't send us past messages
-            return
+            return None
 
         if msg['type'] in ('normal', 'chat'):
             # msg.reply("Thanks for sending\n%(body)s" % msg).send()
@@ -138,7 +139,7 @@ class HipChat(Base):
             my_nick = group_plugin.ourNicks[msg.get_mucroom()]
             sender_nick = msg.get_mucnick()
             if my_nick == sender_nick:
-                return
+                return None
 
         ret = self.respond(msg['from'], msg['body'])
         if ret:

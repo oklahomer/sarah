@@ -1,11 +1,20 @@
 # -*- coding: utf-8 -*-
 import abc
 import re
-
-from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable
-
+from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable, Any, \
+    Optional, Match
 from sarah import ValueObject
-from sarah.bot.types import CommandFunction, CommandConfig
+
+try:
+    from sarah.bot import types
+
+    # Work-around to avoid pyflakes warning "imported but unused" regarding
+    # mypy's comment-styled type hinting
+    # http://www.laurivan.com/make-pyflakespylint-ignore-unused-imports/
+    # http://stackoverflow.com/questions/5033727/how-do-i-get-pyflakes-to-ignore-a-statement/12121404#12121404
+    assert types
+except AssertionError:
+    pass
 
 
 class RichMessage(ValueObject, metaclass=abc.ABCMeta):
@@ -17,7 +26,7 @@ class RichMessage(ValueObject, metaclass=abc.ABCMeta):
 class InputOption(ValueObject):
     def __init__(self,
                  pattern: Union[Pattern, AnyStr],
-                 next_step: Callable) -> None:
+                 next_step: Callable[..., Optional[Any]]) -> None:
         if isinstance(pattern, str):
             self['pattern'] = re.compile(pattern)
 
@@ -26,10 +35,10 @@ class InputOption(ValueObject):
         return self['pattern']
 
     @property
-    def next_step(self) -> Callable:
+    def next_step(self) -> Callable[..., Optional[Any]]:
         return self['next_step']
 
-    def match(self, msg: str) -> bool:
+    def match(self, msg: str) -> Match[Any]:
         return self.pattern.match(msg)
 
 
@@ -57,28 +66,28 @@ class UserContext(ValueObject):
 
 
 class CommandMessage(ValueObject):
-    def __init__(self, original_text: str, text: str, sender: str):
+    def __init__(self, original_text: str, text: str, sender: str) -> None:
         pass
 
     @property
-    def original_text(self):
+    def original_text(self) -> str:
         return self['original_text']
 
     @property
-    def text(self):
+    def text(self) -> str:
         return self['text']
 
     @property
-    def sender(self):
+    def sender(self) -> str:
         return self['sender']
 
 
 class Command(ValueObject):
     def __init__(self,
                  name: str,
-                 function: CommandFunction,
+                 function: 'types.CommandFunction',
                  module_name: str,
-                 config: CommandConfig,
+                 config: 'types.CommandConfig',
                  examples: Iterable[str] = None) -> None:
         pass
 
@@ -102,19 +111,18 @@ class Command(ValueObject):
     def examples(self):
         return self['examples']
 
-    def execute(self, *args) -> Union[UserContext, RichMessage, str]:
-        args = list(args)
-        args.append(self.config)
-        return self.function(*args)
+    def execute(self, command_message: CommandMessage) \
+            -> Union[UserContext, RichMessage, str]:
+        return self.function(command_message, self.config)
 
 
 class ScheduledCommand(ValueObject):
     # noinspection PyMissingConstructor
     def __init__(self,
                  name: str,
-                 function: CommandFunction,
+                 function: 'types.ScheduledFunction',
                  module_name: str,
-                 config: CommandConfig,
+                 config: 'types.CommandConfig',
                  schedule_config: Dict) -> None:
         pass
 
@@ -138,7 +146,5 @@ class ScheduledCommand(ValueObject):
     def schedule_config(self) -> Dict:
         return self['schedule_config']
 
-    def execute(self, *args) -> Union[RichMessage, str]:
-        args = list(args)
-        args.append(self.config)
-        return self.function(*args)
+    def execute(self) -> Union[RichMessage, str]:
+        return self.function(self.config)

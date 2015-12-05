@@ -2,20 +2,28 @@
 
 import logging
 import os
-from multiprocessing import Process
-
-import yaml
+from multiprocessing import Process  # type: ignore
+import yaml  # type: ignore
 from typing import Dict, Iterable
-
 from sarah.bot.hipchat import HipChat
 from sarah.bot.slack import Slack
-from sarah.bot.types import Path
 from sarah.exceptions import SarahException
+
+try:
+    from typing import Any
+
+    # Work-around to avoid pyflakes warning "imported but unused" regarding
+    # mypy's comment-styled type hinting
+    # http://www.laurivan.com/make-pyflakespylint-ignore-unused-imports/
+    # http://stackoverflow.com/questions/5033727/how-do-i-get-pyflakes-to-ignore-a-statement/12121404#12121404
+    assert Any
+except AssertionError:
+    pass
 
 
 class Sarah(object):
     def __init__(self,
-                 config_paths: Iterable[Path]) -> None:
+                 config_paths: Iterable[str]) -> None:
 
         self.config = self.load_config(config_paths)
 
@@ -33,8 +41,8 @@ class Sarah(object):
             slack_process.start()
 
     @staticmethod
-    def load_config(paths: Iterable[Path]) -> Dict:
-        config = {}
+    def load_config(paths: Iterable[str]) -> Dict:
+        config = {}  # type: Dict[str, Any]
 
         if not paths:
             return config
