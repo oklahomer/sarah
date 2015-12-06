@@ -236,8 +236,9 @@ class Base(object, metaclass=abc.ABCMeta):
         def wrapper(func: ScheduledFunction) -> None:
 
             @wraps(func)
-            def wrapped_function(*args, **kwargs) -> Union[str, RichMessage]:
-                return func(*args, **kwargs)
+            def wrapped_function(given_config: Dict[str, Any])\
+                    -> Union[str, RichMessage]:
+                return func(given_config)
 
             module = inspect.getmodule(func)
             self = cls.__instances.get(cls.__name__, None)
@@ -245,7 +246,7 @@ class Base(object, metaclass=abc.ABCMeta):
             if self and module:
                 module_name = module.__name__
                 config = self.plugin_config.get(module_name, {})
-                schedule_config = config.get('schedule', None)
+                schedule_config = config.get('schedule', {})
                 if schedule_config:
                     # If command name duplicates, update with the later one.
                     # The order stays.
@@ -299,9 +300,10 @@ class Base(object, metaclass=abc.ABCMeta):
 
         def wrapper(func: CommandFunction) -> CommandFunction:
             @wraps(func)
-            def wrapped_function(*args, **kwargs) \
+            def wrapped_function(command_message: CommandMessage,
+                                 given_config: Dict[str, Any]) \
                     -> Union[str, UserContext, RichMessage]:
-                return func(*args, **kwargs)
+                return func(command_message, given_config)
 
             module = inspect.getmodule(func)
             self = cls.__instances.get(cls.__name__, None)

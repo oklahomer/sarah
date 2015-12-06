@@ -73,7 +73,9 @@ class CommandMessage(ValueObject):
         return self['sender']
 
 
-CommandFunction = Callable[..., Union[str, RichMessage, UserContext]]
+CommandFunction = Callable[
+    [CommandMessage, Dict[str, Any]],
+    Union[str, RichMessage, UserContext]]
 
 CommandConfig = Dict[str, Any]
 
@@ -112,7 +114,7 @@ class Command(ValueObject):
         return self.function(command_message, self.config)
 
 
-ScheduledFunction = Callable[..., Union[str, RichMessage]]
+ScheduledFunction = Callable[[Dict[str, Any]], Union[str, RichMessage]]
 
 
 class ScheduledCommand(ValueObject):
