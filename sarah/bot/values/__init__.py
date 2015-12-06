@@ -73,9 +73,7 @@ class CommandMessage(ValueObject):
         return self['sender']
 
 
-CommandFunction = Callable[
-    ...,
-    Union[str, RichMessage, UserContext]]
+CommandFunction = Callable[..., Union[str, RichMessage, UserContext]]
 
 CommandConfig = Dict[str, Any]
 
