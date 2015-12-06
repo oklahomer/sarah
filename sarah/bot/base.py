@@ -7,22 +7,34 @@ import logging
 import re
 import sys
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import ThreadPoolExecutor, Future  # type: ignore
 from functools import wraps
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from typing import Optional, Callable, Union, Iterable
+from apscheduler.schedulers import background  # type: ignore
+from typing import Optional, Callable, Union, Iterable, List, Any
 
-from sarah.bot.types import PluginConfig, AnyFunction, CommandFunction
+try:
+    from typing import Dict, Tuple
+
+    # Work-around to avoid pyflakes warning "imported but unused" regarding
+    # mypy's comment-styled type hinting
+    # http://www.laurivan.com/make-pyflakespylint-ignore-unused-imports/
+    # http://stackoverflow.com/questions/5033727/how-do-i-get-pyflakes-to-ignore-a-statement/12121404#12121404
+    assert Dict
+    assert Tuple
+except AssertionError:
+    pass
+
 from sarah.bot.values import Command, CommandMessage, UserContext, \
-    RichMessage, ScheduledCommand
+    ScheduledCommand, RichMessage, PluginConfig, CommandFunction, \
+    ScheduledFunction
 from sarah.thread import ThreadExecutor
 
 
 class Base(object, metaclass=abc.ABCMeta):
-    __commands = {}
-    __schedules = {}
-    __instances = {}
+    __commands = {}  # type: Dict[str, List[Command]]
+    __schedules = {}  # type: Dict[str, List[ScheduledCommand]]
+    __instances = {}  # type: Dict[str, Base] # Should be its subclass
 
     def __init__(self,
                  plugins: Iterable[PluginConfig] = None,
@@ -38,12 +50,12 @@ class Base(object, metaclass=abc.ABCMeta):
             [(p[0], p[1] if len(p) > 1 else {}) for p in plugins])
 
         self.max_workers = max_workers
-        self.scheduler = BackgroundScheduler()
-        self.user_context_map = {}
+        self.scheduler = background.BackgroundScheduler()
+        self.user_context_map = {}  # type: Dict[str, UserContext]
 
         # To be set on run()
-        self.worker = None
-        self.message_worker = None
+        self.worker = None  # type: ThreadPoolExecutor
+        self.message_worker = None  # type: ThreadExecutor
 
         # Reset to ease tests in one file
         self.__commands[self.__class__.__name__] = []
@@ -53,7 +65,9 @@ class Base(object, metaclass=abc.ABCMeta):
         self.__instances[self.__class__.__name__] = self
 
     @abc.abstractmethod
-    def generate_schedule_job(self, command: ScheduledCommand) -> Callable:
+    def generate_schedule_job(self,
+                              command: ScheduledCommand)\
+            -> Callable[..., Optional[Any]]:
         pass
 
     @abc.abstractmethod
@@ -92,7 +106,7 @@ class Base(object, metaclass=abc.ABCMeta):
                 logging.error(e)
 
     @classmethod
-    def concurrent(cls, callback_function: AnyFunction):
+    def concurrent(cls, callback_function):
         @wraps(callback_function)
         def wrapper(self, *args, **kwargs):
             if self.worker:
@@ -125,14 +139,16 @@ class Base(object, metaclass=abc.ABCMeta):
         else:
             logging.info('Loaded plugin. %s' % module_name)
 
-    def respond(self, user_key, user_input) -> Union[RichMessage, str]:
+    def respond(self,
+                user_key: str,
+                user_input: str) -> Optional[Union[RichMessage, str]]:
         user_context = self.user_context_map.get(user_key, None)
 
         if user_input == '.help':
             return self.help()
 
-        ret = None
-        error = []
+        ret = None  # type: Optional[Union[RichMessage, UserContext, str]]
+        error = []  # type: List[Tuple[str, str]]
         if user_context:
             # User is in the middle of conversation
 
@@ -171,7 +187,7 @@ class Base(object, metaclass=abc.ABCMeta):
             command = self.find_command(user_input)
             if command is None:
                 # If it doesn't match any command, leave it.
-                return
+                return None
 
             try:
                 text = re.sub(r'{0}\s+'.format(command.name), '', user_input)
@@ -206,22 +222,23 @@ class Base(object, metaclass=abc.ABCMeta):
                     None)
 
     # Override this method to display rich help message
-    def help(self):
+    def help(self) -> str:
         return "\n".join(
             [(c.name + ": " + ", ".join(c.examples) if c.examples else c.name)
              for c in self.commands])
 
     @property
-    def schedules(self) -> OrderedDict:
-        return self.__schedules.get(self.__class__.__name__, OrderedDict())
+    def schedules(self) -> List[ScheduledCommand]:
+        return self.__schedules.get(self.__class__.__name__, [])
 
     @classmethod
-    def schedule(cls, name: str) -> Callable[[CommandFunction], None]:
-        def wrapper(func: CommandFunction) -> None:
+    def schedule(cls, name: str) -> Callable[[ScheduledFunction], None]:
+        def wrapper(func: ScheduledFunction) -> None:
 
             @wraps(func)
-            def wrapped_function(*args, **kwargs) -> Union[str, RichMessage]:
-                return func(*args, **kwargs)
+            def wrapped_function(given_config: Dict[str, Any])\
+                    -> Union[str, RichMessage]:
+                return func(given_config)
 
             module = inspect.getmodule(func)
             self = cls.__instances.get(cls.__name__, None)
@@ -229,7 +246,7 @@ class Base(object, metaclass=abc.ABCMeta):
             if self and module:
                 module_name = module.__name__
                 config = self.plugin_config.get(module_name, {})
-                schedule_config = config.get('schedule', None)
+                schedule_config = config.get('schedule', {})
                 if schedule_config:
                     # If command name duplicates, update with the later one.
                     # The order stays.
@@ -272,7 +289,7 @@ class Base(object, metaclass=abc.ABCMeta):
                                        'minutes': 5}))
 
     @property
-    def commands(self) -> OrderedDict:
+    def commands(self) -> List[Command]:
         return self.__commands.get(self.__class__.__name__, [])
 
     @classmethod
@@ -283,8 +300,10 @@ class Base(object, metaclass=abc.ABCMeta):
 
         def wrapper(func: CommandFunction) -> CommandFunction:
             @wraps(func)
-            def wrapped_function(*args, **kwargs) -> Union[str, UserContext]:
-                return func(*args, **kwargs)
+            def wrapped_function(command_message: CommandMessage,
+                                 given_config: Dict[str, Any]) \
+                    -> Union[str, UserContext, RichMessage]:
+                return func(command_message, given_config)
 
             module = inspect.getmodule(func)
             self = cls.__instances.get(cls.__name__, None)

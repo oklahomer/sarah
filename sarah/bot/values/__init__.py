@@ -2,10 +2,10 @@
 import abc
 import re
 
-from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable
+from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable, Any, \
+    Optional, Match, Tuple
 
 from sarah import ValueObject
-from sarah.bot.types import CommandFunction, CommandConfig
 
 
 class RichMessage(ValueObject, metaclass=abc.ABCMeta):
@@ -17,7 +17,7 @@ class RichMessage(ValueObject, metaclass=abc.ABCMeta):
 class InputOption(ValueObject):
     def __init__(self,
                  pattern: Union[Pattern, AnyStr],
-                 next_step: Callable) -> None:
+                 next_step: Callable[..., Optional[Any]]) -> None:
         if isinstance(pattern, str):
             self['pattern'] = re.compile(pattern)
 
@@ -26,10 +26,10 @@ class InputOption(ValueObject):
         return self['pattern']
 
     @property
-    def next_step(self) -> Callable:
+    def next_step(self) -> Callable[..., Optional[Any]]:
         return self['next_step']
 
-    def match(self, msg: str) -> bool:
+    def match(self, msg: str) -> Match[Any]:
         return self.pattern.match(msg)
 
 
@@ -57,20 +57,27 @@ class UserContext(ValueObject):
 
 
 class CommandMessage(ValueObject):
-    def __init__(self, original_text: str, text: str, sender: str):
+    def __init__(self, original_text: str, text: str, sender: str) -> None:
         pass
 
     @property
-    def original_text(self):
+    def original_text(self) -> str:
         return self['original_text']
 
     @property
-    def text(self):
+    def text(self) -> str:
         return self['text']
 
     @property
-    def sender(self):
+    def sender(self) -> str:
         return self['sender']
+
+
+CommandFunction = Callable[
+    [CommandMessage, Dict[str, Any]],
+    Union[str, RichMessage, UserContext]]
+
+CommandConfig = Dict[str, Any]
 
 
 class Command(ValueObject):
@@ -102,17 +109,19 @@ class Command(ValueObject):
     def examples(self):
         return self['examples']
 
-    def execute(self, *args) -> Union[UserContext, RichMessage, str]:
-        args = list(args)
-        args.append(self.config)
-        return self.function(*args)
+    def execute(self, command_message: CommandMessage) \
+            -> Union[UserContext, RichMessage, str]:
+        return self.function(command_message, self.config)
+
+
+ScheduledFunction = Callable[[Dict[str, Any]], Union[str, RichMessage]]
 
 
 class ScheduledCommand(ValueObject):
     # noinspection PyMissingConstructor
     def __init__(self,
                  name: str,
-                 function: CommandFunction,
+                 function: ScheduledFunction,
                  module_name: str,
                  config: CommandConfig,
                  schedule_config: Dict) -> None:
@@ -138,7 +147,8 @@ class ScheduledCommand(ValueObject):
     def schedule_config(self) -> Dict:
         return self['schedule_config']
 
-    def execute(self, *args) -> Union[RichMessage, str]:
-        args = list(args)
-        args.append(self.config)
-        return self.function(*args)
+    def execute(self) -> Union[RichMessage, str]:
+        return self.function(self.config)
+
+
+PluginConfig = Tuple[str, Optional[Dict]]

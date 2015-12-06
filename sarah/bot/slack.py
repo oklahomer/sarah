@@ -2,16 +2,23 @@
 # https://api.slack.com/rtm
 import json
 import logging
-from concurrent.futures import Future
+from concurrent.futures import Future  # type: ignore
+
 import requests
 import time
 from typing import Optional, Dict, Callable, Iterable
-from websocket import WebSocketApp
+from websocket import WebSocketApp  # type: ignore
 from sarah import ValueObject
 from sarah.bot import Base, concurrent
-from sarah.bot.types import PluginConfig
-from sarah.bot.values import RichMessage, ScheduledCommand
+from sarah.bot.values import ScheduledCommand, RichMessage, PluginConfig
 from sarah.exceptions import SarahException
+
+try:
+    from typing import Any, Union
+    assert Any
+    assert Union
+except AssertionError:
+    pass
 
 
 class SlackClient(object):
@@ -60,7 +67,7 @@ class SlackClient(object):
 
 
 class AttachmentField(ValueObject):
-    def __init__(self, title: str, value: str, short: bool = None):
+    def __init__(self, title: str, value: str, short: bool = None) -> None:
         pass
 
     def to_dict(self):
@@ -88,7 +95,7 @@ class MessageAttachment(ValueObject):
                  image_url: str = None,
                  thumb_url: str = None,
                  pretext: str = None,
-                 color: str = None):
+                 color: str = None) -> None:
         pass
 
     def to_dict(self):
@@ -117,7 +124,7 @@ class SlackMessage(RichMessage):
                  unfurl_media: bool = False,
                  icon_url: str = None,
                  icon_emoji: str = None,
-                 attachments: Iterable[MessageAttachment] = None):
+                 attachments: Iterable[MessageAttachment] = None) -> None:
         pass
 
     def __str__(self) -> str:
@@ -143,6 +150,8 @@ class SlackMessage(RichMessage):
 
         return params
 
+EventTypeMap = Dict[str, Dict[str, Union[Callable[..., Optional[Any]], str]]]
+
 
 class Slack(Base):
     def __init__(self,
@@ -154,7 +163,7 @@ class Slack(Base):
 
         self.client = self.setup_client(token=token)
         self.message_id = 0
-        self.ws = None
+        self.ws = None  # type: WebSocketApp
         self.connect_attempt_count = 0
 
     def setup_client(self, token: str) -> SlackClient:
@@ -190,13 +199,14 @@ class Slack(Base):
             self.ws.run_forever()
 
     def generate_schedule_job(self,
-                              command: ScheduledCommand) -> Optional[Callable]:
+                              command: ScheduledCommand)\
+            -> Optional[Callable[..., None]]:
         channels = command.schedule_config.pop('channels', [])
         if not channels:
             logging.warning(
                 'Missing channels configuration for schedule job. %s. '
                 'Skipping.' % command.module_name)
-            return
+            return None
 
         def job_function() -> None:
             ret = command.execute()
@@ -247,7 +257,8 @@ class Slack(Base):
                 'description': "A team member's presence changed"},
             'team_migration_started': {
                 'method': self.handle_team_migration,
-                'description': "The team is being migrated between servers"}}
+                'description': "The team is being migrated between servers"}
+        }  # type: EventTypeMap
 
         if 'type' not in decoded_event:
             # https://api.slack.com/rtm#events
@@ -268,9 +279,11 @@ class Slack(Base):
                                                     'NO DESCRIPTION'),
                 event))
 
-        if 'method' in type_map[decoded_event['type']]:
-            type_map[decoded_event['type']]['method'](decoded_event)
-            return
+        method = type_map[decoded_event['type']].get('method', None)
+        if method:
+            method(decoded_event)
+
+        return
 
     def handle_hello(self, _: Dict) -> None:
         self.connect_attempt_count = 0  # Reset retry count
@@ -293,7 +306,7 @@ class Slack(Base):
             logging.error('Malformed event is given. Missing %s. %s' % (
                 ', '.join(missing_props),
                 content))
-            return
+            return None
 
         ret = self.respond(content['user'], content['text'])
         if isinstance(ret, SlackMessage):
