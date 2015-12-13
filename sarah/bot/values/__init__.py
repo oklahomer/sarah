@@ -109,7 +109,7 @@ class Command(ValueObject):
     def examples(self):
         return self['examples']
 
-    def execute(self, command_message: CommandMessage) \
+    def __call__(self, command_message: CommandMessage) \
             -> Union[UserContext, RichMessage, str]:
         return self.function(command_message, self.config)
 
@@ -147,7 +147,7 @@ class ScheduledCommand(ValueObject):
     def schedule_config(self) -> Dict:
         return self['schedule_config']
 
-    def execute(self) -> Union[RichMessage, str]:
+    def __call__(self) -> Union[RichMessage, str]:
         return self.function(self.config)
 
 

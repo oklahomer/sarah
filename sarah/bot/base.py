@@ -191,9 +191,9 @@ class Base(object, metaclass=abc.ABCMeta):
 
             try:
                 text = re.sub(r'{0}\s+'.format(command.name), '', user_input)
-                ret = command.execute(CommandMessage(original_text=user_input,
-                                                     text=text,
-                                                     sender=user_key))
+                ret = command(CommandMessage(original_text=user_input,
+                                             text=text,
+                                             sender=user_key))
             except Exception as e:
                 error.append((command.name, str(e)))
 

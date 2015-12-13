@@ -209,7 +209,7 @@ class Slack(Base):
             return None
 
         def job_function() -> None:
-            ret = command.execute()
+            ret = command()
             if isinstance(ret, SlackMessage):
                 for channel in channels:
                     # TODO Error handling

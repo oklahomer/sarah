@@ -40,7 +40,7 @@ class HipChat(Base):
             return None
 
         def job_function() -> None:
-            ret = command.execute()
+            ret = command()
             for room in rooms:
                 self.enqueue_sending_message(
                     self.client.send_message,
