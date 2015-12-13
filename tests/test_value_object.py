@@ -101,3 +101,13 @@ class TestCallbackMethodAsValue(object):
         {'abc': "foo bar buzz", 'foo': "zzz", 'key': "abc"})
 
     assert_that(obj1).is_not_equal_to(obj3)
+
+
+class TestInvalidInplimentation(object):
+    class MyInvalidClass(ValueObject):
+        pass
+
+    with pytest.raises(NotImplementedError) as e:
+        MyInvalidClass()
+
+        assert_that(e).is_instance_of(NotImplementedError)

@@ -38,7 +38,7 @@ class ValueObject(object):
         # Values are already set on __new__.
         # Override this method when value modification on initialization is
         # required.
-        pass
+        raise NotImplementedError()
 
     def __getitem__(self, key) -> Any:
         return self.__stash[key]
