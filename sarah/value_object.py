@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-from inspect import getfullargspec
+import hashlib
+from inspect import getfullargspec  # type: ignore
 
-from typing import Any
+from typing import Any, Dict
 
 
 class ValueObject(object):
@@ -46,28 +47,35 @@ class ValueObject(object):
         self.__stash[key] = value
 
     def __repr__(self):
-        null = object()
-        names, _, _, defaults = getfullargspec(self.__init__)[:4]
-        names.pop(0)  # Skip the first argument, own class
-        values = [self.__stash[arg] for arg in names]
-        defaults = () if not defaults else defaults
-        defaults = defaults[1:] if len(defaults) == len(
-            names) + 1 else defaults
-        defaults = (null,) * (len(names) - len(defaults)) + defaults
-        return '%s(%s)' % (
-            self.__class__.__name__,
-            ', '.join(repr(a) for a, d in zip(values, defaults) if a != d))
+        return '%s(%s)' % (self.__class__.__name__, self.__stash)
 
     def __hash__(self) -> int:
-        return hash(repr(self))
+        return hash(Util.dict_to_hex(self.__stash))
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
             return False
-        return repr(self) == repr(other)
+
+        return hash(self) == hash(other)
 
     def __ne__(self, other) -> bool:
         return not self.__eq__(other)
 
     def keys(self):
         return self.__stash.keys()
+
+
+class Util(object):
+    @classmethod
+    def dict_to_hex(cls, d: Dict[str, Any]) -> str:
+        md5 = hashlib.md5()
+        keys = sorted(d.keys())
+        for key in keys:
+            value = d[key]
+            if isinstance(value, dict):
+                value = cls.dict_to_hex(value)
+            else:
+                value = hash('%s::%s' % (type(value), value))
+            value = "%s::%s" % (key, value)
+            md5.update(value.encode('utf-8'))
+        return md5.hexdigest()
