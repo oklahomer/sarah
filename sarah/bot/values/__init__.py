@@ -1,11 +1,20 @@
 # -*- coding: utf-8 -*-
 import abc
 import re
-
 from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable, Any, \
     Optional, Match, Tuple
 
 from sarah import ValueObject
+
+
+CommandFunction = Callable[['CommandMessage', Dict[str, Any]],
+                           Union[str, 'RichMessage', 'UserContext']]
+
+ScheduledFunction = Callable[[Dict[str, Any]], Union[str, 'RichMessage']]
+
+CommandConfig = Dict[str, Any]
+
+PluginConfig = Tuple[str, Optional[Dict]]
 
 
 class RichMessage(ValueObject, metaclass=abc.ABCMeta):
@@ -17,7 +26,7 @@ class RichMessage(ValueObject, metaclass=abc.ABCMeta):
 class InputOption(ValueObject):
     def __init__(self,
                  pattern: Union[Pattern, AnyStr],
-                 next_step: Callable[..., Optional[Any]]) -> None:
+                 next_step: CommandFunction) -> None:
         if isinstance(pattern, str):
             self['pattern'] = re.compile(pattern)
 
@@ -26,7 +35,7 @@ class InputOption(ValueObject):
         return self['pattern']
 
     @property
-    def next_step(self) -> Callable[..., Optional[Any]]:
+    def next_step(self) -> CommandFunction:
         return self['next_step']
 
     def match(self, msg: str) -> Match[Any]:
@@ -55,6 +64,12 @@ class UserContext(ValueObject):
     def input_options(self) -> Iterable[InputOption]:
         return self['input_options']
 
+    def find_next_step(self, user_input: str) \
+            -> Optional[CommandFunction]:
+        return next((o.next_step for o in self.input_options if
+                     o.match(user_input)),
+                    None)
+
 
 class CommandMessage(ValueObject):
     def __init__(self, original_text: str, text: str, sender: str) -> None:
@@ -71,13 +86,6 @@ class CommandMessage(ValueObject):
     @property
     def sender(self) -> str:
         return self['sender']
-
-
-CommandFunction = Callable[
-    [CommandMessage, Dict[str, Any]],
-    Union[str, RichMessage, UserContext]]
-
-CommandConfig = Dict[str, Any]
 
 
 class Command(ValueObject):
@@ -114,9 +122,6 @@ class Command(ValueObject):
         return self.function(command_message, self.config)
 
 
-ScheduledFunction = Callable[[Dict[str, Any]], Union[str, RichMessage]]
-
-
 class ScheduledCommand(ValueObject):
     # noinspection PyMissingConstructor
     def __init__(self,
@@ -149,6 +154,3 @@ class ScheduledCommand(ValueObject):
 
     def __call__(self) -> Union[RichMessage, str]:
         return self.function(self.config)
-
-
-PluginConfig = Tuple[str, Optional[Dict]]

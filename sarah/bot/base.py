@@ -160,26 +160,24 @@ class Base(object, metaclass=abc.ABCMeta):
 
             # Check if we can proceed conversation. If user input is irrelevant
             # return help message.
-            option = next(
-                (o for o in user_context.input_options if o.match(user_input)),
-                None)
-            if option is None:
+            next_step = user_context.find_next_step(user_input)
+            if next_step is None:
                 return user_context.help_message
 
             try:
-                config = self.plugin_config.get(option.next_step.__module__,
+                config = self.plugin_config.get(next_step.__module__,
                                                 {})
-                ret = option.next_step(CommandMessage(original_text=user_input,
-                                                      text=user_input,
-                                                      sender=user_key),
-                                       config)
+                ret = next_step(CommandMessage(original_text=user_input,
+                                               text=user_input,
+                                               sender=user_key),
+                                config)
 
                 # Only when command is successfully executed, remove current
                 # context. To forcefully abort the conversation, use ".abort"
                 # command
                 self.user_context_map.pop(user_key)
             except Exception as e:
-                error.append((option.next_step.__name__, str(e)))
+                error.append((next_step.__name__, str(e)))
 
         else:
             # If user is not in the middle of conversation, see if the input
