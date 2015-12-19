@@ -43,7 +43,7 @@ class TestCommandDecorator(object):
                     -> Callable[..., Optional[Any]]:
                 pass
 
-        # Implementing class is initialized
+        # Concrete class is initialized
         base_impl = BaseImpl()
 
         # Plugin module is loaded while/after initialization
@@ -59,5 +59,60 @@ class TestCommandDecorator(object):
         assert_that(registered[0]).is_instance_of(Command)
         assert_that(registered[0](CommandMessage("original message",
                                                  "message",
-                                                 "homer")))\
+                                                 "homer"))) \
             .is_equal_to("original message")
+
+
+class TestScheduleDecorator(object):
+    passed_config = None
+
+    def test_decorator(self):
+        def func(config: Dict[str, Any]) -> str:
+            self.passed_config = config
+            return "spam"
+
+        wrapper = Base.schedule("alarm")
+        wrapped_function = wrapper(func)
+        ret = wrapped_function({'spam': "ham"})
+
+        assert_that(ret).is_equal_to("spam")
+        assert_that(self.passed_config).is_not_none()
+        assert_that(self.passed_config).is_instance_of(dict)
+
+    def test_with_instance(self):
+        class BaseImpl(Base):
+            def connect(self) -> None:
+                pass
+
+            def generate_schedule_job(self, command: ScheduledCommand) \
+                    -> Callable[..., Optional[Any]]:
+                pass
+
+        # Concrete class is initialized
+        base_impl = BaseImpl()
+
+        # Scheduler configuration must be set
+        schedule_config = {'schedule': {
+            'channels': ["Egg"],
+            'scheduler_args': {
+                'trigger': "cron",
+                'hour': 10}}}
+        base_impl.plugin_config = {
+            'test_bot_base': schedule_config}
+
+        # Plugin module is loaded while/after initialization
+        class BaseImplPlugin(object):
+            @staticmethod
+            @BaseImpl.schedule("scheduled_job")
+            def scheduled_command(config: Dict) -> str:
+                return config
+
+        registered = base_impl.schedules
+        assert_that(registered).is_length(1)
+        assert_that(registered[0]).is_instance_of(ScheduledCommand)
+        assert_that(registered[0]()).is_equal_to(schedule_config)
+        assert_that(registered[0].name).is_equal_to("scheduled_job")
+        assert_that(registered[0].module_name).is_equal_to("test_bot_base")
+        assert_that(registered[0].config).is_equal_to(schedule_config)
+        assert_that(registered[0].schedule_config) \
+            .is_equal_to(schedule_config["schedule"])
