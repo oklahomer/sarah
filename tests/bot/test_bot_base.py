@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
-from typing import Dict, Any, Callable, Optional
+from typing import Dict, Any
 
 from assertpy import assert_that
 
 from sarah.bot import Base
 from sarah.bot.values import CommandMessage, ScheduledCommand, Command
+
+
+def create_concrete_class():
+    # Creates class named "BaseImpl" for test
+    return type('BaseImpl',
+                (Base,),
+                {'connect': lambda self: None,
+                 'generate_schedule_job': lambda self: None})
 
 
 class TestCommandDecorator(object):
@@ -35,21 +43,13 @@ class TestCommandDecorator(object):
         assert_that(self.passed_config).is_instance_of(dict)
 
     def test_with_instance(self):
-        class BaseImpl(Base):
-            def connect(self) -> None:
-                pass
-
-            def generate_schedule_job(self, command: ScheduledCommand) \
-                    -> Callable[..., Optional[Any]]:
-                pass
-
         # Concrete class is initialized
-        base_impl = BaseImpl()
+        base_impl = create_concrete_class()()
 
         # Plugin module is loaded while/after initialization
         class BaseImplPlugin(object):
             @staticmethod
-            @BaseImpl.command(".target", ["spam", "ham"])
+            @base_impl.__class__.command(".target", ["spam", "ham"])
             def target_command(msg: CommandMessage, _: Dict) -> str:
                 return msg.original_text
 
@@ -80,16 +80,8 @@ class TestScheduleDecorator(object):
         assert_that(self.passed_config).is_instance_of(dict)
 
     def test_with_instance(self):
-        class BaseImpl(Base):
-            def connect(self) -> None:
-                pass
-
-            def generate_schedule_job(self, command: ScheduledCommand) \
-                    -> Callable[..., Optional[Any]]:
-                pass
-
         # Concrete class is initialized
-        base_impl = BaseImpl()
+        base_impl = create_concrete_class()()
 
         # Scheduler configuration must be set
         schedule_config = {'schedule': {
@@ -103,7 +95,7 @@ class TestScheduleDecorator(object):
         # Plugin module is loaded while/after initialization
         class BaseImplPlugin(object):
             @staticmethod
-            @BaseImpl.schedule("scheduled_job")
+            @base_impl.__class__.schedule("scheduled_job")
             def scheduled_command(config: Dict) -> str:
                 return config
 

@@ -67,7 +67,7 @@ class Base(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def generate_schedule_job(self,
                               command: ScheduledCommand)\
-            -> Callable[..., Optional[Any]]:
+            -> Optional[Callable[..., None]]:
         pass
 
     @abc.abstractmethod
