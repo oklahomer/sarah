@@ -24,5 +24,5 @@ class TestCommand(object):
         assert_that(command.examples).is_equal_to(["example", "input"])
 
         # is callable
-        assert_that(command(CommandMessage(".hello sarah", "sarah", "homer"))) \
-            .is_equal_to(".hello sarah")
+        message = CommandMessage(".hello sarah", "sarah", "homer")
+        assert_that(command(message)).is_equal_to(".hello sarah")

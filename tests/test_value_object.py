@@ -13,7 +13,7 @@ class TestInit(object):
         def __init__(self,
                      key1: str = "spam",
                      key2: str = "ham",
-                     key3: Dict[str, Any] = None) -> None:
+                     key3: Dict[str, Any]=None) -> None:
             pass
 
     class SomeObject(object):
