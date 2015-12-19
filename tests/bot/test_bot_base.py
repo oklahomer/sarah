@@ -60,6 +60,31 @@ class TestCommandDecorator(object):
                                                  "homer"))) \
             .is_equal_to("original message")
 
+    def test_with_duplicated_assignment(self):
+        # Concrete class is initialized
+        base_impl = create_concrete_class()()
+
+        # Plugin module is loaded while/after initialization
+        class BaseImplPlugin(object):
+            @staticmethod
+            @base_impl.__class__.command(".target", ["spam", "ham"])
+            def target_command(msg: CommandMessage, _: Dict) -> str:
+                return msg.original_text
+
+            @staticmethod
+            @base_impl.__class__.command(".target", ["spam", "ham"])
+            def overriding_command(msg: CommandMessage, _: Dict) -> str:
+                return "2ND ASSIGNMENT"
+
+        # Then the command provided by plugin module is registered
+        registered = base_impl.commands
+        assert_that(registered).is_length(1)
+        assert_that(registered[0]).is_instance_of(Command)
+        assert_that(registered[0](CommandMessage("original message",
+                                                 "message",
+                                                 "homer"))) \
+            .is_equal_to("2ND ASSIGNMENT")
+
 
 class TestScheduleDecorator(object):
     passed_config = None
@@ -106,3 +131,33 @@ class TestScheduleDecorator(object):
         assert_that(registered[0].config).is_equal_to(schedule_config)
         assert_that(registered[0].schedule_config) \
             .is_equal_to(schedule_config["schedule"])
+
+    def test_with_duplicated_assignment(self):
+        # Concrete class is initialized
+        base_impl = create_concrete_class()()
+
+        # Scheduler configuration must be set
+        schedule_config = {'schedule': {
+            'channels': ["Egg"],
+            'scheduler_args': {
+                'trigger': "cron",
+                'hour': 10}}}
+        base_impl.plugin_config = {
+            'test_bot_base': schedule_config}
+
+        # Plugin module is loaded while/after initialization
+        class BaseImplPlugin(object):
+            @staticmethod
+            @base_impl.__class__.schedule("scheduled_job")
+            def scheduled_command(config: Dict) -> str:
+                return config
+
+            @staticmethod
+            @base_impl.__class__.schedule("scheduled_job")
+            def overriding_command(config: Dict) -> str:
+                return "2ND ASSIGNMENT"
+
+        registered = base_impl.schedules
+        assert_that(registered).is_length(1)
+        assert_that(registered[0]).is_instance_of(ScheduledCommand)
+        assert_that(registered[0]()).is_equal_to("2ND ASSIGNMENT")

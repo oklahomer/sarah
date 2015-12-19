@@ -260,7 +260,7 @@ class Base(object, metaclass=abc.ABCMeta):
                     try:
                         # If command is already registered, updated it.
                         idx = [c.name for c in cls.__schedules[cls.__name__]] \
-                            .index(command)
+                            .index(command.name)
                         cls.__schedules[cls.__name__][idx] = command
                     except ValueError:
                         # Not registered, just append it.
@@ -321,7 +321,7 @@ class Base(object, metaclass=abc.ABCMeta):
                 try:
                     # If command is already registered, updated it.
                     idx = [c.name for c in cls.__commands[cls.__name__]] \
-                        .index(command)
+                        .index(command.name)
                     cls.__commands[cls.__name__][idx] = command
                 except ValueError:
                     # Not registered, just append it.
