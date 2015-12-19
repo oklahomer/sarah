@@ -230,11 +230,12 @@ class Base(object, metaclass=abc.ABCMeta):
         return self.__schedules.get(self.__class__.__name__, [])
 
     @classmethod
-    def schedule(cls, name: str) -> Callable[[ScheduledFunction], None]:
-        def wrapper(func: ScheduledFunction) -> None:
+    def schedule(cls, name: str) \
+            -> Callable[[ScheduledFunction], ScheduledFunction]:
 
+        def wrapper(func: ScheduledFunction) -> ScheduledFunction:
             @wraps(func)
-            def wrapped_function(given_config: Dict[str, Any])\
+            def wrapped_function(given_config: Dict[str, Any]) \
                     -> Union[str, RichMessage]:
                 return func(given_config)
 
