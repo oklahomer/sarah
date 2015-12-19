@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 import random
 import re
-
 import pytest
 from assertpy import assert_that
 from typing import Union, AnyStr, Pattern, Callable, Optional, Any, Dict
-
 from sarah import ValueObject
 
 
@@ -13,9 +11,9 @@ class TestInit(object):
     # A *bit* complex to be considered as "value object"
     class MyValue(ValueObject):
         def __init__(self,
-                     key1: str="spam",
-                     key2: str="ham",
-                     key3: Dict[str, Any]=None) -> None:
+                     key1: str = "spam",
+                     key2: str = "ham",
+                     key3: Dict[str, Any] = None) -> None:
             pass
 
     class SomeObject(object):

@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
-
 from assertpy import assert_that
-
 from sarah.bot.values import InputOption, CommandMessage, CommandConfig
 
 

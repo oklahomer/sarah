@@ -4,7 +4,6 @@ import logging
 import types
 from concurrent.futures import ALL_COMPLETED
 from time import sleep
-
 import pytest
 from assertpy import assert_that
 from mock import MagicMock, call, patch
@@ -13,7 +12,6 @@ from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.stanza import Message
 from sleekxmpp.test import TestSocket
 from sleekxmpp.xmlstream import JID
-
 import sarah.bot.plugins.simple_counter
 from sarah.bot.hipchat import HipChat, SarahHipChatException
 from sarah.bot.values import UserContext, CommandMessage, Command

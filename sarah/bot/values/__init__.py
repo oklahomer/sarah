@@ -3,9 +3,7 @@ import abc
 import re
 from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable, Any, \
     Optional, Match, Tuple
-
 from sarah import ValueObject
-
 
 CommandFunction = Callable[['CommandMessage', Dict[str, Any]],
                            Union[str, 'RichMessage', 'UserContext']]

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from assertpy import assert_that
-
 from sarah.bot.values import CommandConfig, ScheduledCommand
 
 

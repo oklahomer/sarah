@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import Dict, Any
-
 from assertpy import assert_that
-
 from sarah.bot import Base
 from sarah.bot.values import CommandMessage, ScheduledCommand, Command
 

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from assertpy import assert_that
-
 from sarah.bot.plugins.bmw_quotes import hipchat_quote, hipchat_scheduled_quote
 from sarah.bot.plugins.echo import hipchat_echo
 from sarah.bot.plugins.hello import hipchat_hello, hipchat_user_feeling_good, \

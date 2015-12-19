@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import os
-
 from setuptools import setup, find_packages
 # noinspection PyPep8Naming
 from sarah import __name__ as PACKAGE_NAME

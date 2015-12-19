@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from assertpy import assert_that
-
 from sarah.bot.values import CommandMessage, Command, CommandConfig
 
 
@@ -25,5 +24,5 @@ class TestCommand(object):
         assert_that(command.examples).is_equal_to(["example", "input"])
 
         # is callable
-        assert_that(command(CommandMessage(".hello sarah", "sarah", "homer")))\
+        assert_that(command(CommandMessage(".hello sarah", "sarah", "homer"))) \
             .is_equal_to(".hello sarah")

@@ -9,7 +9,6 @@ import sys
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, Future  # type: ignore
 from functools import wraps
-
 from apscheduler.schedulers import background  # type: ignore
 from typing import Optional, Callable, Union, Iterable, List, Any
 
@@ -66,7 +65,7 @@ class Base(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def generate_schedule_job(self,
-                              command: ScheduledCommand)\
+                              command: ScheduledCommand) \
             -> Optional[Callable[..., None]]:
         pass
 

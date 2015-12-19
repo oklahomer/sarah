@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from assertpy import assert_that
-
 from sarah.bot.values import CommandMessage, CommandConfig, UserContext, \
     InputOption
 
@@ -28,7 +27,7 @@ class TestUserContext(object):
         assert_that(user_context).is_instance_of(UserContext)
         assert_that(user_context.message).is_equal_to("Are you sick?")
         assert_that(user_context.help_message).is_equal_to("Say yes or no.")
-        assert_that(user_context.find_next_step("yes"))\
+        assert_that(user_context.find_next_step("yes")) \
             .is_equal_to(DummyClass.answer_to_yes)
         assert_that(user_context.find_next_step("no")) \
             .is_equal_to(DummyClass.answer_to_no)

@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
 import types
-
 import pytest
 from assertpy import assert_that
 from mock import patch, MagicMock, call
-
 import sarah
 from sarah.bot.slack import Slack, SlackClient, SarahSlackException
 

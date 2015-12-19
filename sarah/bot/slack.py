@@ -3,7 +3,6 @@
 import json
 import logging
 from concurrent.futures import Future  # type: ignore
-
 import requests
 import time
 from typing import Optional, Dict, Callable, Iterable
@@ -15,6 +14,7 @@ from sarah.exceptions import SarahException
 
 try:
     from typing import Any, Union
+
     assert Any
     assert Union
 except AssertionError:
@@ -150,6 +150,7 @@ class SlackMessage(RichMessage):
 
         return params
 
+
 EventTypeMap = Dict[str, Dict[str, Union[Callable[..., Optional[Any]], str]]]
 
 
@@ -199,7 +200,7 @@ class Slack(Base):
             self.ws.run_forever()
 
     def generate_schedule_job(self,
-                              command: ScheduledCommand)\
+                              command: ScheduledCommand) \
             -> Optional[Callable[..., None]]:
         channels = command.schedule_config.pop('channels', [])
         if not channels:
