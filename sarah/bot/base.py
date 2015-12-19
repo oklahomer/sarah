@@ -56,12 +56,15 @@ class Base(object, metaclass=abc.ABCMeta):
         self.worker = None  # type: ThreadPoolExecutor
         self.message_worker = None  # type: ThreadExecutor
 
+        cls = self.__class__
+        cls_name = cls.__name__
+
         # Reset to ease tests in one file
-        self.__commands[self.__class__.__name__] = []
-        self.__schedules[self.__class__.__name__] = []
+        cls.__commands[cls_name] = []
+        cls.__schedules[cls_name] = []
 
         # To refer to this instance from class method decorator
-        self.__instances[self.__class__.__name__] = self
+        cls.__instances[cls_name] = self
 
     @abc.abstractmethod
     def generate_schedule_job(self,
@@ -226,7 +229,8 @@ class Base(object, metaclass=abc.ABCMeta):
 
     @property
     def schedules(self) -> List[ScheduledCommand]:
-        return self.__schedules.get(self.__class__.__name__, [])
+        cls = self.__class__
+        return cls.__schedules.get(cls.__name__, [])
 
     @classmethod
     def schedule(cls, name: str) \
@@ -288,7 +292,8 @@ class Base(object, metaclass=abc.ABCMeta):
 
     @property
     def commands(self) -> List[Command]:
-        return self.__commands.get(self.__class__.__name__, [])
+        cls = self.__class__
+        return cls.__commands.get(cls.__name__, [])
 
     @classmethod
     def command(cls,
