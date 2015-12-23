@@ -223,9 +223,7 @@ class Base(object, metaclass=abc.ABCMeta):
 
     # Override this method to display rich help message
     def help(self) -> str:
-        return "\n".join(
-            [(c.name + ": " + ", ".join(c.examples) if c.examples else c.name)
-             for c in self.commands])
+        return "\n".join(c.help for c in self.commands)
 
     @property
     def schedules(self) -> List[ScheduledCommand]:

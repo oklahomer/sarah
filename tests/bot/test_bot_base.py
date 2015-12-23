@@ -2,6 +2,7 @@
 from typing import Dict, Any, Optional, Callable
 
 from assertpy import assert_that
+from mock import patch, PropertyMock
 
 from sarah.bot import Base
 from sarah.bot.values import CommandMessage, ScheduledCommand, Command
@@ -210,3 +211,24 @@ class TestAddScheduleJobs(object):
         base_impl.add_schedule_jobs([command])
 
         assert_that(base_impl.scheduler.get_jobs()).is_empty()
+
+
+class TestHelp(object):
+    def test_without_command(self):
+        base_impl = create_concrete_class()()
+        assert_that(base_impl.help()).is_empty()
+
+        commands = [Command(
+                "command%d" % i,
+                lambda msg, config: "foo",
+                "module_name%d" % i,
+                {'spam': "ham"},
+                ["example1 %d" % i, "example2 %d" % i]) for i in range(10)]
+
+        with patch.object(base_impl.__class__,
+                          'commands',
+                          new_callable=PropertyMock) as m:
+            m.return_value = commands
+            print(base_impl.commands)
+            assert_that(base_impl.help()) \
+                .is_equal_to("\n".join(c.help for c in commands))

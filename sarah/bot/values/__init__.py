@@ -115,6 +115,11 @@ class Command(ValueObject):
     def examples(self):
         return self['examples']
 
+    @property
+    def help(self):
+        return self.name + ": " + ", ".join(self.examples) \
+            if self.examples else self.name
+
     def __call__(self, command_message: CommandMessage) \
             -> Union[UserContext, RichMessage, str]:
         return self.function(command_message, self.config)
