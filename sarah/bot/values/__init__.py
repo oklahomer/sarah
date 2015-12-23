@@ -150,5 +150,9 @@ class ScheduledCommand(ValueObject):
     def schedule_config(self) -> Dict:
         return self['schedule_config']
 
+    @property
+    def job_id(self) -> str:
+        return "%s.%s" % (self.module_name, self.name)
+
     def __call__(self) -> Union[RichMessage, str]:
         return self.function(self.config)

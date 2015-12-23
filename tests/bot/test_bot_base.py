@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Callable
+
 from assertpy import assert_that
+
 from sarah.bot import Base
 from sarah.bot.values import CommandMessage, ScheduledCommand, Command
 
@@ -10,7 +12,7 @@ def create_concrete_class():
     return type('BaseImpl',
                 (Base,),
                 {'connect': lambda self: None,
-                 'generate_schedule_job': lambda self: None})
+                 'generate_schedule_job': lambda self, command: None})
 
 
 class TestCommandDecorator(object):
@@ -161,3 +163,50 @@ class TestScheduleDecorator(object):
         assert_that(registered).is_length(1)
         assert_that(registered[0]).is_instance_of(ScheduledCommand)
         assert_that(registered[0]()).is_equal_to("2ND ASSIGNMENT")
+
+
+class TestAddScheduleJobs(object):
+    def test_valid_configuration(self):
+        class BaseImpl(Base):
+            def connect(self) -> None:
+                pass
+
+            def generate_schedule_job(self,
+                                      command: ScheduledCommand) \
+                    -> Optional[Callable[..., None]]:
+                def job_function() -> None:
+                    command()
+
+                return job_function
+
+        command = ScheduledCommand('spam',
+                                   lambda config: "ham",
+                                   'dummy_module_name',
+                                   {'egg': "spam"},
+                                   {'spam': "egg"})
+        base_impl = BaseImpl()
+        base_impl.add_schedule_jobs([command])
+
+        assert_that(base_impl.scheduler.get_jobs()).is_length(1)
+        registered_job = base_impl.scheduler.get_job(command.job_id)
+        assert_that(registered_job).is_not_none()
+
+    def test_missing_returning_function(self):
+        class BaseImpl(Base):
+            def connect(self) -> None:
+                pass
+
+            def generate_schedule_job(self,
+                                      command: ScheduledCommand) \
+                    -> Optional[Callable[..., None]]:
+                return None
+
+        command = ScheduledCommand('spam',
+                                   lambda config: "ham",
+                                   'dummy_module_name',
+                                   {'egg': "spam"},
+                                   {'spam': "egg"})
+        base_impl = BaseImpl()
+        base_impl.add_schedule_jobs([command])
+
+        assert_that(base_impl.scheduler.get_jobs()).is_empty()

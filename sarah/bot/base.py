@@ -281,11 +281,10 @@ class Base(object, metaclass=abc.ABCMeta):
             job_function = self.generate_schedule_job(command)
             if not job_function:
                 continue
-            job_id = '%s.%s' % (command.module_name, command.name)
-            logging.info("Add schedule %s" % job_id)
+            logging.info("Add schedule %s" % command.job_id)
             self.scheduler.add_job(
                 job_function,
-                id=job_id,
+                id=command.job_id,
                 **command.schedule_config.pop(
                     'scheduler_args', {'trigger': "interval",
                                        'minutes': 5}))

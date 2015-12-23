@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from assertpy import assert_that
+
 from sarah.bot.values import CommandConfig, ScheduledCommand
 
 
@@ -30,6 +31,9 @@ class TestScheduledCommand(object):
             .is_equal_to({'trigger': "cron",
                           'hour': 10,
                           'minute': 30})
+        assert_that(scheduled_command.job_id) \
+            .is_equal_to("%s.%s" % (DummyClass.__name__,
+                                    DummyClass.scheduled_job.__name__))
 
         # is callable
         assert_that(scheduled_command()).is_equal_to("ham")
