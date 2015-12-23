@@ -214,7 +214,7 @@ class TestAddScheduleJobs(object):
 
 
 class TestHelp(object):
-    def test_without_command(self):
+    def test_with_examples(self):
         base_impl = create_concrete_class()()
         assert_that(base_impl.help()).is_empty()
 
@@ -229,6 +229,30 @@ class TestHelp(object):
                           'commands',
                           new_callable=PropertyMock) as m:
             m.return_value = commands
-            print(base_impl.commands)
             assert_that(base_impl.help()) \
                 .is_equal_to("\n".join(c.help for c in commands))
+
+
+class TestFindCommand(object):
+    def test_valid(self):
+        base_impl = create_concrete_class()()
+
+        def dummy_func(msg, _):
+            return msg.original_text
+
+        irrelevant_command = Command(".matching",
+                                     dummy_func,
+                                     "matching_module",
+                                     {'spam': "ham"})
+        matching_command = Command(".matching",
+                                   dummy_func,
+                                   "matching_module",
+                                   {'spam': "ham"})
+
+        with patch.object(base_impl.__class__,
+                          'commands',
+                          new_callable=PropertyMock) as m:
+            m.return_value = [irrelevant_command, matching_command]
+            assert_that(base_impl.find_command(".SPAM_HAM_EGG")).is_none()
+            assert_that(base_impl.find_command(".matching")) \
+                .is_equal_to(matching_command)
