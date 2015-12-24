@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import logging
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 from typing import Dict, Any, Optional, Callable
 
+import sys
 from apscheduler.schedulers.background import BackgroundScheduler
 from assertpy import assert_that
 from mock import patch, PropertyMock
@@ -73,6 +74,61 @@ class TestStop(object):
         assert_that(base_impl.worker._shutdown).is_true()
         assert_that(base_impl.message_worker._shutdown).is_true()
         assert_that(base_impl.scheduler.running).is_false()
+
+
+class TestLoadPlugins(object):
+    def test_valid(self):
+        module_name = 'sarah.bot.plugins.echo'
+
+        kls = create_concrete_class()
+        base_impl = kls(plugins=[(module_name,)])
+        base_impl.load_plugins()
+
+        assert_that(module_name in sys.modules.keys()).is_true()
+
+        # multiple calls won't affect
+        base_impl.load_plugins()
+        assert_that(module_name in sys.modules.keys()).is_true()
+
+    def test_invalid(self):
+        kls = create_concrete_class()
+        base_impl = kls(plugins=[("sarah.bot.plugins.invalid_dummy_module",)])
+        with patch.object(logging,
+                          'warning',
+                          return_value=None):
+            base_impl.load_plugins()
+            assert_that(logging.warning.call_count).is_equal_to(1)
+
+
+class TestEnqueueSendingMessage(object):
+    def test_valid(self):
+        base_impl = create_concrete_class()(None, max_workers=3)
+        base_impl.message_worker = ThreadExecutor()
+
+        with patch.object(base_impl.message_worker,
+                          'submit',
+                          return_value=Future()):
+            base_impl.enqueue_sending_message(lambda _: "dummy")
+            assert_that(base_impl.message_worker.submit.call_count) \
+                .is_equal_to(1)
+
+
+class TestConcurrentDecorator(object):
+    def test_with_worker(self):
+        base_impl = create_concrete_class()(None, max_workers=3)
+        base_impl.worker = ThreadPoolExecutor(
+                max_workers=base_impl.max_workers)
+
+        with patch.object(base_impl.worker,
+                          'submit',
+                          return_value=Future()):
+            base_impl.concurrent(lambda _: "dummy")(base_impl)
+            assert_that(base_impl.worker.submit.call_count).is_equal_to(1)
+
+    def test_without_worker(self):
+        base_impl = create_concrete_class()()
+        ret = base_impl.concurrent(lambda _: "dummy")(base_impl)
+        assert_that(ret).is_equal_to("dummy")
 
 
 class TestCommandDecorator(object):
