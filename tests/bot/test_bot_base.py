@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, Optional, Callable
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -10,6 +11,7 @@ from mock import patch, PropertyMock
 from sarah.bot import Base
 from sarah.bot.values import CommandMessage, ScheduledCommand, Command, \
     UserContext, InputOption
+from sarah.thread import ThreadExecutor
 
 
 def create_concrete_class():
@@ -46,6 +48,31 @@ class TestInit(object):
             .is_equal_to(OrderedDict([('spam', {}),
                                       ('ham', {'egg': 'SPAM'})]))
         assert_that(base_impl.max_workers).is_equal_to(10)
+
+
+class TestRun(object):
+    def test_valid(self):
+        kls = create_concrete_class()
+        base_impl = kls(None, 3)
+        base_impl.run()
+
+        assert_that(base_impl.worker).is_instance_of(ThreadPoolExecutor)
+        assert_that(base_impl.worker._shutdown).is_false()
+        assert_that(base_impl.message_worker).is_instance_of(ThreadExecutor)
+        assert_that(base_impl.message_worker._shutdown).is_false()
+        assert_that(base_impl.scheduler.running).is_true()
+
+
+class TestStop(object):
+    def test_valid(self):
+        kls = create_concrete_class()
+        base_impl = kls(None, 3)
+        base_impl.run()
+
+        base_impl.stop()
+        assert_that(base_impl.worker._shutdown).is_true()
+        assert_that(base_impl.message_worker._shutdown).is_true()
+        assert_that(base_impl.scheduler.running).is_false()
 
 
 class TestCommandDecorator(object):
