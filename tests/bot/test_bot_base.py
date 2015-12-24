@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
+from collections import OrderedDict
 from typing import Dict, Any, Optional, Callable
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from assertpy import assert_that
 from mock import patch, PropertyMock
 
@@ -16,6 +18,34 @@ def create_concrete_class():
                 (Base,),
                 {'connect': lambda self: None,
                  'generate_schedule_job': lambda self, command: None})
+
+
+class TestInit(object):
+    def test_init_no_args(self):
+        kls = create_concrete_class()
+        base_impl = kls()
+
+        assert_that(isinstance(base_impl, Base)).is_true()
+        assert_that(base_impl.plugin_config).is_empty()
+        assert_that(base_impl.max_workers).is_none()
+        assert_that(isinstance(base_impl.scheduler, BackgroundScheduler)) \
+            .is_true()
+        assert_that(base_impl.user_context_map).is_empty()
+        assert_that(base_impl.worker).is_none()
+        assert_that(base_impl.message_worker).is_none()
+        assert_that(base_impl.commands).is_empty()
+        assert_that(base_impl.schedules).is_empty()
+
+    def test_init_with_args(self):
+        kls = create_concrete_class()
+        base_impl = kls(plugins=[("spam",),
+                                 ("ham", {'egg': "SPAM"})],
+                        max_workers=10)
+
+        assert_that(base_impl.plugin_config) \
+            .is_equal_to(OrderedDict([('spam', {}),
+                                      ('ham', {'egg': 'SPAM'})]))
+        assert_that(base_impl.max_workers).is_equal_to(10)
 
 
 class TestCommandDecorator(object):
@@ -325,7 +355,6 @@ class TestRespond(object):
                                         "YES",
                                         lambda msg, config: [][0])])},
                         clear=True):
-
             with patch.object(logging,
                               'error',
                               return_value=None):
@@ -345,6 +374,5 @@ class TestRespond(object):
                                                 "help",
                                                 []))])},
                         clear=True):
-
             assert_that(base_impl.respond("homer", "YES")) \
                 .is_equal_to("new message")
