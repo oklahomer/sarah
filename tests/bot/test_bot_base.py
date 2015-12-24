@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
+import logging
 from typing import Dict, Any, Optional, Callable
 
 from assertpy import assert_that
 from mock import patch, PropertyMock
 
 from sarah.bot import Base
-from sarah.bot.values import CommandMessage, ScheduledCommand, Command
+from sarah.bot.values import CommandMessage, ScheduledCommand, Command, \
+    UserContext, InputOption
 
 
 def create_concrete_class():
@@ -256,3 +258,93 @@ class TestFindCommand(object):
             assert_that(base_impl.find_command(".SPAM_HAM_EGG")).is_none()
             assert_that(base_impl.find_command(".matching")) \
                 .is_equal_to(matching_command)
+
+
+class TestRespond(object):
+    def test_valid(self):
+        base_impl = create_concrete_class()()
+
+        with patch.object(base_impl,
+                          'help',
+                          return_value="DUMMY"):
+            ret = base_impl.respond("homer", ".help")
+            assert_that(base_impl.help.call_count).is_equal_to(1)
+            assert_that(ret).is_equal_to("DUMMY")
+
+        with patch.object(base_impl,
+                          'find_command',
+                          return_value=None):
+            ret = base_impl.respond("hoer", ".non_registered_command")
+            assert_that(base_impl.find_command.call_count).is_equal_to(1)
+            assert_that(ret).is_none()
+
+        with patch.object(base_impl,
+                          'find_command',
+                          return_value=Command(".hello",
+                                               lambda msg, _: msg.text,
+                                               "matching_module",
+                                               {'spam': "ham"})):
+            ret = base_impl.respond("homer", ".hello kasumi")
+            assert_that(base_impl.find_command.call_count).is_equal_to(1)
+            assert_that(ret).is_equal_to("kasumi")
+
+        with patch.object(base_impl,
+                          'find_command',
+                          return_value=Command(".hello",
+                                               lambda msg, _: [][0],
+                                               "matching_module",
+                                               {'spam': "ham"})):
+            with patch.object(logging,
+                              'error',
+                              return_value=None):
+                ret = base_impl.respond("homer", ".hello kasumi")
+                assert_that(base_impl.find_command.call_count).is_equal_to(1)
+                assert_that(ret).starts_with("Something went wrong")
+                assert_that(logging.error.call_count).is_equal_to(1)
+
+        # with user context
+        with patch.dict(base_impl.user_context_map,
+                        {"homer": UserContext(
+                                "previous return value",
+                                "Please input YES",
+                                [InputOption(
+                                        "YES",
+                                        lambda msg, config: "dummy")])},
+                        clear=True):
+            assert_that(base_impl.respond("homer", "NO MATCHING INPUT")) \
+                .is_equal_to("Please input YES")
+
+            assert_that(base_impl.respond("homer", "YES")).is_equal_to("dummy")
+
+        # Exception on user context command
+        with patch.dict(base_impl.user_context_map,
+                        {"homer": UserContext(
+                                "previous return value",
+                                "Please input YES",
+                                [InputOption(
+                                        "YES",
+                                        lambda msg, config: [][0])])},
+                        clear=True):
+
+            with patch.object(logging,
+                              'error',
+                              return_value=None):
+                assert_that(base_impl.respond("homer", "YES")) \
+                    .starts_with("Something went wrong")
+                assert_that(logging.error.call_count).is_equal_to(1)
+
+        # UserContext is returned
+        with patch.dict(base_impl.user_context_map,
+                        {"homer": UserContext(
+                                "previous return value",
+                                "Please input YES",
+                                [InputOption(
+                                        "YES",
+                                        lambda msg, config: UserContext(
+                                                "new message",
+                                                "help",
+                                                []))])},
+                        clear=True):
+
+            assert_that(base_impl.respond("homer", "YES")) \
+                .is_equal_to("new message")
