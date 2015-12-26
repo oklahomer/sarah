@@ -9,7 +9,6 @@ import sys
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, Future  # type: ignore
 from functools import wraps
-
 from apscheduler.schedulers import background  # type: ignore
 from typing import Optional, Callable, Union, Iterable, List, Any
 
@@ -57,17 +56,20 @@ class Base(object, metaclass=abc.ABCMeta):
         self.worker = None  # type: ThreadPoolExecutor
         self.message_worker = None  # type: ThreadExecutor
 
+        cls = self.__class__
+        cls_name = cls.__name__
+
         # Reset to ease tests in one file
-        self.__commands[self.__class__.__name__] = []
-        self.__schedules[self.__class__.__name__] = []
+        cls.__commands[cls_name] = []
+        cls.__schedules[cls_name] = []
 
         # To refer to this instance from class method decorator
-        self.__instances[self.__class__.__name__] = self
+        cls.__instances[cls_name] = self
 
     @abc.abstractmethod
     def generate_schedule_job(self,
-                              command: ScheduledCommand)\
-            -> Callable[..., Optional[Any]]:
+                              command: ScheduledCommand) \
+            -> Optional[Callable[..., None]]:
         pass
 
     @abc.abstractmethod
@@ -221,20 +223,20 @@ class Base(object, metaclass=abc.ABCMeta):
 
     # Override this method to display rich help message
     def help(self) -> str:
-        return "\n".join(
-            [(c.name + ": " + ", ".join(c.examples) if c.examples else c.name)
-             for c in self.commands])
+        return "\n".join(c.help for c in self.commands)
 
     @property
     def schedules(self) -> List[ScheduledCommand]:
-        return self.__schedules.get(self.__class__.__name__, [])
+        cls = self.__class__
+        return cls.__schedules.get(cls.__name__, [])
 
     @classmethod
-    def schedule(cls, name: str) -> Callable[[ScheduledFunction], None]:
-        def wrapper(func: ScheduledFunction) -> None:
+    def schedule(cls, name: str) \
+            -> Callable[[ScheduledFunction], ScheduledFunction]:
 
+        def wrapper(func: ScheduledFunction) -> ScheduledFunction:
             @wraps(func)
-            def wrapped_function(given_config: Dict[str, Any])\
+            def wrapped_function(given_config: Dict[str, Any]) \
                     -> Union[str, RichMessage]:
                 return func(given_config)
 
@@ -256,7 +258,7 @@ class Base(object, metaclass=abc.ABCMeta):
                     try:
                         # If command is already registered, updated it.
                         idx = [c.name for c in cls.__schedules[cls.__name__]] \
-                            .index(command)
+                            .index(command.name)
                         cls.__schedules[cls.__name__][idx] = command
                     except ValueError:
                         # Not registered, just append it.
@@ -277,18 +279,18 @@ class Base(object, metaclass=abc.ABCMeta):
             job_function = self.generate_schedule_job(command)
             if not job_function:
                 continue
-            job_id = '%s.%s' % (command.module_name, command.name)
-            logging.info("Add schedule %s" % job_id)
+            logging.info("Add schedule %s" % command.job_id)
             self.scheduler.add_job(
                 job_function,
-                id=job_id,
+                id=command.job_id,
                 **command.schedule_config.pop(
                     'scheduler_args', {'trigger': "interval",
                                        'minutes': 5}))
 
     @property
     def commands(self) -> List[Command]:
-        return self.__commands.get(self.__class__.__name__, [])
+        cls = self.__class__
+        return cls.__commands.get(cls.__name__, [])
 
     @classmethod
     def command(cls,
@@ -316,7 +318,7 @@ class Base(object, metaclass=abc.ABCMeta):
                 try:
                     # If command is already registered, updated it.
                     idx = [c.name for c in cls.__commands[cls.__name__]] \
-                        .index(command)
+                        .index(command.name)
                     cls.__commands[cls.__name__][idx] = command
                 except ValueError:
                     # Not registered, just append it.

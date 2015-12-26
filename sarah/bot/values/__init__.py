@@ -3,9 +3,7 @@ import abc
 import re
 from typing import Union, Pattern, AnyStr, Callable, Dict, Iterable, Any, \
     Optional, Match, Tuple
-
 from sarah import ValueObject
-
 
 CommandFunction = Callable[['CommandMessage', Dict[str, Any]],
                            Union[str, 'RichMessage', 'UserContext']]
@@ -117,6 +115,11 @@ class Command(ValueObject):
     def examples(self):
         return self['examples']
 
+    @property
+    def help(self):
+        return self.name + ": " + ", ".join(self.examples) \
+            if self.examples else self.name
+
     def __call__(self, command_message: CommandMessage) \
             -> Union[UserContext, RichMessage, str]:
         return self.function(command_message, self.config)
@@ -151,6 +154,10 @@ class ScheduledCommand(ValueObject):
     @property
     def schedule_config(self) -> Dict:
         return self['schedule_config']
+
+    @property
+    def job_id(self) -> str:
+        return "%s.%s" % (self.module_name, self.name)
 
     def __call__(self) -> Union[RichMessage, str]:
         return self.function(self.config)

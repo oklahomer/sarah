@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
-
 import pytest
 from assertpy import assert_that
-
 from sarah.main import Sarah, SarahException
 
 

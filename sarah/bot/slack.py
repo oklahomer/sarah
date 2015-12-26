@@ -3,7 +3,6 @@
 import json
 import logging
 from concurrent.futures import Future  # type: ignore
-
 import requests
 import time
 from typing import Optional, Dict, Callable, Iterable
@@ -15,6 +14,7 @@ from sarah.exceptions import SarahException
 
 try:
     from typing import Any, Union
+
     assert Any
     assert Union
 except AssertionError:
@@ -150,6 +150,7 @@ class SlackMessage(RichMessage):
 
         return params
 
+
 EventTypeMap = Dict[str, Dict[str, Union[Callable[..., Optional[Any]], str]]]
 
 
@@ -171,16 +172,17 @@ class Slack(Base):
 
     def connect(self) -> None:
         while True:
-            if self.connect_attempt_count > 10:
+            if self.connect_attempt_count >= 10:
                 logging.error("Attempted 10 times, but all failed. Quitting.")
                 break
 
             try:
                 self.connect_attempt_count += 1
                 self.try_connect()
-                time.sleep(self.connect_attempt_count)
             except Exception as e:
                 logging.error(e)
+
+            time.sleep(self.connect_attempt_count)
 
     def try_connect(self) -> None:
         try:
@@ -199,7 +201,7 @@ class Slack(Base):
             self.ws.run_forever()
 
     def generate_schedule_job(self,
-                              command: ScheduledCommand)\
+                              command: ScheduledCommand) \
             -> Optional[Callable[..., None]]:
         channels = command.schedule_config.pop('channels', [])
         if not channels:
@@ -238,9 +240,10 @@ class Slack(Base):
                 # Something went wrong with the previous message
                 logging.error(
                     'Something went wrong with the previous message. '
-                    'message_id: %d. error: %s' % (decoded_event['reply_to'],
-                                                   decoded_event['error']))
-            return
+                    'message_id: %s. error: %s' % (
+                        decoded_event['reply_to'],
+                        decoded_event.get('error', "")))
+            return None
 
         # TODO organize
         type_map = {
@@ -266,11 +269,11 @@ class Slack(Base):
             # event.
             logging.error("Given event doesn't have type property. %s" %
                           event)
-            return
+            return None
 
         if decoded_event['type'] not in type_map:
             logging.error('Unknown type value is given. %s' % event)
-            return
+            return None
 
         logging.debug(
             '%s: %s. %s' % (
@@ -283,7 +286,7 @@ class Slack(Base):
         if method:
             method(decoded_event)
 
-        return
+        return None
 
     def handle_hello(self, _: Dict) -> None:
         self.connect_attempt_count = 0  # Reset retry count

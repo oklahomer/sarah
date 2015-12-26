@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from assertpy import assert_that
-
 from sarah.bot.plugins.bmw_quotes import slack_quote
 from sarah.bot.plugins.echo import slack_echo
 from sarah.bot.plugins.simple_counter import reset_count, slack_count, \

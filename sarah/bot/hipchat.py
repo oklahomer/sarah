@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
 from concurrent.futures import Future  # type: ignore
-
 from sleekxmpp import ClientXMPP, Message  # type: ignore
 from sleekxmpp.exceptions import IqTimeout, IqError  # type: ignore
 from typing import Dict, Optional, Callable, Iterable
-
 from sarah.bot import Base, concurrent
 from sarah.bot.values import ScheduledCommand, PluginConfig
 from sarah.exceptions import SarahException
@@ -28,7 +26,7 @@ class HipChat(Base):
         self.client = self.setup_xmpp_client(jid, password, proxy)
 
     def generate_schedule_job(self,
-                              command: ScheduledCommand)\
+                              command: ScheduledCommand) \
             -> Optional[Callable[..., None]]:
         # pop room configuration to leave minimal information for command
         # argument
