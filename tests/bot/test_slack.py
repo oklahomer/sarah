@@ -7,7 +7,7 @@ from concurrent.futures import Future
 
 import pytest
 from assertpy import assert_that
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 import sarah
 from sarah.bot.slack import Slack, SlackClient, SarahSlackException, \
