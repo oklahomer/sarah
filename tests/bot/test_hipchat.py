@@ -124,7 +124,7 @@ class TestMessage(object):
 
         with patch.object(hipchat, 'respond', return_value=None):
             self.wait_future_finish(hipchat.message(msg))
-            assert_that(msg.reply.call_count).is_equal_to(0)
+            assert_that(msg.reply.call_count).is_zero()
 
     def test_skip_own_message(self, hipchat):
         msg = Message(hipchat.client, stype='groupchat')
@@ -165,18 +165,16 @@ class TestGenerateScheduleJob(object):
         return h
 
     def test_missing_room_settings(self, hipchat):
-        with patch.object(logging,
-                          'warning',
-                          return_value=None):
-            ret = hipchat.generate_schedule_job(
-                    ScheduledCommand("name",
-                                     lambda: "dummy",
-                                     "module_name",
-                                     {},
-                                     {}))
+        logging.warning = MagicMock()
+        ret = hipchat.generate_schedule_job(
+                ScheduledCommand("name",
+                                 lambda: "dummy",
+                                 "module_name",
+                                 {},
+                                 {}))
 
-            assert_that(logging.warning.call_count).is_equal_to(1)
-            assert_that(ret).is_none()
+        assert_that(logging.warning.call_count).is_equal_to(1)
+        assert_that(ret).is_none()
 
     def test_valid_settings(self, hipchat):
         ret = hipchat.generate_schedule_job(
@@ -201,10 +199,12 @@ class TestSessionStart(object):
     @pytest.fixture
     def hipchat(self, request):
         # NO h.start() for this test
-        return HipChat(nick='Sarah',
-                       jid='test@localhost',
-                       password='password',
-                       plugins=())
+        h = HipChat(nick='Sarah',
+                    jid='test@localhost',
+                    password='password',
+                    plugins=())
+        h.client.send_presence = MagicMock()
+        return h
 
     def throw_iq_timeout(self):
         raise IqTimeout(None)
@@ -218,47 +218,44 @@ class TestSessionStart(object):
         raise Exception('spam.ham.egg')
 
     def test_timeout(self, hipchat):
-        with patch.object(hipchat.client, 'send_presence', return_value=None):
-            with patch.object(
-                    hipchat.client,
-                    'get_roster',
-                    side_effect=self.throw_iq_timeout) as mock_get_roster:
-                with pytest.raises(SarahHipChatException) as e:
-                    hipchat.session_start(None)
+        with patch.object(
+                hipchat.client,
+                'get_roster',
+                side_effect=self.throw_iq_timeout) as mock_get_roster:
+            with pytest.raises(SarahHipChatException) as e:
+                hipchat.session_start(None)
 
-                assert_that(mock_get_roster.call_count).is_equal_to(1)
-                assert_that(str(e)) \
-                    .matches('Timeout occurred while getting roster. '
-                             'Error type: cancel. '
-                             'Condition: remote-server-timeout.')
+            assert_that(mock_get_roster.call_count).is_equal_to(1)
+            assert_that(str(e)) \
+                .matches('Timeout occurred while getting roster. '
+                         'Error type: cancel. '
+                         'Condition: remote-server-timeout.')
 
     def test_unknown_error(self, hipchat):
-        with patch.object(hipchat.client, 'send_presence', return_value=None):
-            with patch.object(
-                    hipchat.client,
-                    'get_roster',
-                    side_effect=self.throw_exception) as mock_get_roster:
-                with pytest.raises(SarahHipChatException) as e:
-                    hipchat.session_start(None)
+        with patch.object(
+                hipchat.client,
+                'get_roster',
+                side_effect=self.throw_exception) as mock_get_roster:
+            with pytest.raises(SarahHipChatException) as e:
+                hipchat.session_start(None)
 
-                assert_that(mock_get_roster.call_count).is_equal_to(1)
-                assert_that(str(e)) \
-                    .matches('Unknown error occurred: spam.ham.egg.')
+            assert_that(mock_get_roster.call_count).is_equal_to(1)
+            assert_that(str(e)) \
+                .matches('Unknown error occurred: spam.ham.egg.')
 
     def test_iq_error(self, hipchat):
-        with patch.object(hipchat.client, 'send_presence', return_value=None):
-            with patch.object(
-                    hipchat.client,
-                    'get_roster',
-                    side_effect=self.throw_iq_error) as mock_get_roster:
-                with pytest.raises(SarahHipChatException) as e:
-                    hipchat.session_start(None)
+        with patch.object(
+                hipchat.client,
+                'get_roster',
+                side_effect=self.throw_iq_error) as mock_get_roster:
+            with pytest.raises(SarahHipChatException) as e:
+                hipchat.session_start(None)
 
-                assert_that(mock_get_roster.call_count).is_equal_to(1)
-                assert_that(str(e)) \
-                    .matches('IQError while getting roster. '
-                             'Error type: spam. '
-                             'Condition: ham. Content: egg.')
+            assert_that(mock_get_roster.call_count).is_equal_to(1)
+            assert_that(str(e)) \
+                .matches('IQError while getting roster. '
+                         'Error type: spam. '
+                         'Condition: ham. Content: egg.')
 
 
 # noinspection PyUnresolvedReferences
@@ -291,7 +288,7 @@ class TestJoinRooms(object):
                           return_value=None) as mock_send:
             h.join_rooms({})
 
-            assert_that(mock_send.call_count).is_equal_to(0)
+            assert_that(mock_send.call_count).is_zero()
             assert_that(h.client.plugin['xep_0045']) \
                 .has_rooms({}) \
                 .has_ourNicks({})

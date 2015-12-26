@@ -1,11 +1,18 @@
 # -*- coding: utf-8 -*-
+import inspect
+import json
 import logging
-import types
+import time
+from concurrent.futures import Future
+
 import pytest
 from assertpy import assert_that
-from mock import patch, MagicMock, call
+from mock import patch, MagicMock
+
 import sarah
-from sarah.bot.slack import Slack, SlackClient, SarahSlackException
+from sarah.bot.slack import Slack, SlackClient, SarahSlackException, \
+    SlackMessage
+from sarah.bot.values import ScheduledCommand
 
 
 class TestInit(object):
@@ -21,47 +28,18 @@ class TestInit(object):
 
         assert_that(slack) \
             .has_message_id(0) \
-            .has_ws(None)
+            .has_ws(None) \
+            .has_connect_attempt_count(0)
 
-    def test_load_plugins(self):
-        slack = Slack(token='spam_ham_egg',
-                      plugins=(('sarah.bot.plugins.simple_counter', {}),
-                               ('sarah.bot.plugins.echo', {})),
-                      max_workers=1)
-        slack.load_plugins()
 
-        assert_that(slack.commands) \
-            .described_as("3 commands are loaded") \
-            .is_length(3) \
-            .extract('name') \
-            .contains('.count',
-                      '.reset_count',
-                      '.echo')
+class TestTryConnect(object):
+    @pytest.fixture(scope='function')
+    def slack(self, request):
+        return Slack(token='spam_ham_egg',
+                     plugins=(),
+                     max_workers=1)
 
-        assert_that(slack.commands) \
-            .extract('name', 'module_name') \
-            .contains_sequence(('.count', 'sarah.bot.plugins.simple_counter'),
-                               ('.reset_count',
-                                'sarah.bot.plugins.simple_counter'),
-                               ('.echo', 'sarah.bot.plugins.echo'))
-
-        for command in slack.commands:
-            assert_that(command.function).is_type_of(types.FunctionType)
-
-    def test_non_existing_plugin(self):
-        slack = Slack(token='spam_ham_egg',
-                      plugins=(('spam.ham.egg.onion', {}),),
-                      max_workers=1)
-        slack.load_plugins()
-
-        assert_that(slack.commands).is_empty()
-        assert_that(slack.scheduler.get_jobs()).is_empty()
-
-    def test_connection_fail(self):
-        slack = Slack(token='spam_ham_egg',
-                      plugins=(('spam.ham.egg.onion', {}),),
-                      max_workers=1)
-
+    def test_connection_fail(self, slack):
         with patch.object(slack.client,
                           'request',
                           side_effect=Exception) as mock_connect:
@@ -71,11 +49,7 @@ class TestInit(object):
             assert_that(str(e)).matches("Slack request error on /rtm.start\.")
             assert_that(mock_connect.call_count).is_equal_to(1)
 
-    def test_connection_response_error(self):
-        slack = Slack(token='spam_ham_egg',
-                      plugins=(('spam.ham.egg.onion', {}),),
-                      max_workers=1)
-
+    def test_connection_response_error(self, slack):
         with patch.object(slack.client,
                           'get',
                           return_value={"dummy": "spam"}) as mock_connect:
@@ -85,11 +59,7 @@ class TestInit(object):
             assert_that(mock_connect.call_count).is_equal_to(1)
             assert_that(str(e)).matches("Slack request error on /rtm.start")
 
-    def test_connection_ok(self):
-        slack = Slack(token='spam_ham_egg',
-                      plugins=(('spam.ham.egg.onion', {}),),
-                      max_workers=1)
-
+    def test_connection_ok(self, slack):
         with patch.object(slack.client,
                           'get',
                           return_value={'url': 'ws://localhost:80/'}):
@@ -101,50 +71,168 @@ class TestInit(object):
                 assert_that(mock_connect.call_count).is_equal_to(1)
 
 
-class TestSchedule(object):
-    def test_missing_config(self):
+class TestConnect(object):
+    @pytest.fixture(scope='function')
+    def slack(self, request):
+        return Slack(token='spam_ham_egg',
+                     plugins=(),
+                     max_workers=1)
+
+    def test_reconnection(self, slack):
+        logging.error = MagicMock()
+        time.sleep = MagicMock()
+        with patch.object(slack, "try_connect", side_effect=Exception):
+            slack.connect()
+
+            assert_that(slack.try_connect.call_count).is_equal_to(10)
+            assert_that(logging.error.call_count).is_equal_to(11)
+
+
+class TestMessage(object):
+    @pytest.fixture(scope='function')
+    def slack(self, request):
+        return Slack(token='spam_ham_egg',
+                     plugins=(),
+                     max_workers=1)
+
+    def test_fail_reply(self, slack):
+        ws = MagicMock()
+        logging.error = MagicMock()
+
+        slack.message(ws, json.dumps({'reply_to': "spam", 'ok': False}))
+        assert_that(logging.error.call_count).is_equal_to(1)
+
+    def test_missing_type(self, slack):
+        ws = MagicMock()
+        logging.error = MagicMock()
+
+        slack.message(ws, json.dumps({}))
+        assert_that(logging.error.call_count).is_equal_to(1)
+
+    def test_invalid_type(self, slack):
+        ws = MagicMock()
+        logging.error = MagicMock()
+
+        slack.message(ws, json.dumps({'type': "spam.ham.egg"}))
+        assert_that(logging.error.call_count).is_equal_to(1)
+
+    def test_valid_hello(self, slack):
+        ws = MagicMock()
+        slack.handle_hello = MagicMock()
+
+        slack.message(ws, json.dumps({'type': "hello"}))
+
+        assert_that(slack.handle_hello.call_count).is_equal_to(1)
+
+    def test_valid_message(self, slack):
+        ws = MagicMock()
+        slack.handle_message = MagicMock()
+
+        slack.message(ws, json.dumps({'type': "message"}))
+
+        assert_that(slack.handle_message.call_count).is_equal_to(1)
+
+    def test_valid_migration(self, slack):
+        ws = MagicMock()
+        slack.handle_team_migration = MagicMock()
+
+        slack.message(ws, json.dumps({'type': "team_migration_started"}))
+
+        assert_that(slack.handle_team_migration.call_count).is_equal_to(1)
+
+
+class TestHandleMessage(object):
+    @pytest.fixture(scope='function')
+    def slack(self, request):
+        return Slack(token='spam_ham_egg',
+                     plugins=(),
+                     max_workers=1)
+
+    def test_missing_props(self, slack):
+        logging.error = MagicMock()
+        slack.respond = MagicMock()
+        slack.handle_message({'type': "message",
+                              'channel': "my channel",
+                              'text': "hello"})
+
+        assert_that(logging.error.call_count).is_equal_to(1)
+        assert_that(slack.respond.call_count).is_zero()
+
+    def valid_props_with_simple_response(self, slack):
+        with patch.object(slack, "respond", return_value="dummy"):
+            with patch.object(slack,
+                              "enqueue_sending_message",
+                              return_value=Future()):
+                slack.handle_message({'type': "message",
+                                      'channel': "C06TXXXX",
+                                      'user': "U06TXXXXX",
+                                      'text': ".bmw",
+                                      'ts': "1438477080.000004",
+                                      'team': "T06TXXXXX"})
+                assert_that(slack.respond.call_count).is_equal_to(1)
+                assert_that(slack.enqueue_sending_message.call_count) \
+                    .is_equal_to(1)
+
+    def valid_props_with_rich_message_response(self, slack):
+        with patch.object(slack, "respond", return_value=SlackMessage()):
+            with patch.object(slack.client,
+                              "post",
+                              return_value=dict()):
+                slack.handle_message({'type': "message",
+                                      'channel': "C06TXXXX",
+                                      'user': "U06TXXXXX",
+                                      'text': ".bmw",
+                                      'ts': "1438477080.000004",
+                                      'team': "T06TXXXXX"})
+                assert_that(slack.respond.call_count).is_equal_to(1)
+                assert_that(slack.client.post.call_count).is_equal_to(1)
+
+
+class TestGenerateScheduleJob(object):
+    @pytest.fixture(scope='function')
+    def slack(self, request):
+        return Slack(token='',
+                     plugins=(),
+                     max_workers=1)
+
+    def test_missing_channel_settings(self, slack):
         logging.warning = MagicMock()
+        ret = slack.generate_schedule_job(ScheduledCommand("name",
+                                                           lambda: "dummy",
+                                                           "module_name",
+                                                           {},
+                                                           {}))
 
-        slack = Slack(token='spam_ham_egg',
-                      plugins=(('sarah.bot.plugins.bmw_quotes',),),
-                      max_workers=1)
-        slack.connect = lambda: True
-        slack.run()
+        assert_that(logging.warning.call_count).is_equal_to(1)
+        assert_that(ret).is_none()
 
-        assert_that(slack.scheduler.get_jobs()) \
-            .described_as("No module is loaded") \
-            .is_empty()
-        assert_that(logging.warning.call_count).is_equal_to(2)
-        assert_that(logging.warning.call_args) \
-            .described_as("Configuration is entirely missing.") \
-            .is_equal_to(call('Missing configuration for schedule job. '
-                              'sarah.bot.plugins.bmw_quotes. Skipping.'))
+    def test_valid_settings(self, slack):
+        ret = slack.generate_schedule_job(
+                ScheduledCommand("name",
+                                 lambda _: "dummy",
+                                 "module_name",
+                                 {},
+                                 {'channels': ("channel1",)}))
+        assert_that(inspect.isfunction(ret)).is_true()
 
-    def test_missing_channel_config(self):
-        logging.warning = MagicMock()
+        with patch.object(slack,
+                          "enqueue_sending_message",
+                          return_value=Future()):
+            ret()
+            assert_that(slack.enqueue_sending_message.call_count) \
+                .is_equal_to(1)
 
-        slack = Slack(
-            token='spam_ham_egg',
-            plugins=(('sarah.bot.plugins.bmw_quotes', {"dummy": "spam"}),),
-            max_workers=1)
-        slack.connect = lambda: True
-        slack.run()
+    def test_valid_settings_with_rich_message(self, slack):
+        ret = slack.generate_schedule_job(
+                ScheduledCommand("name",
+                                 lambda _: SlackMessage(),
+                                 "module_name",
+                                 {},
+                                 {'channels': ("channel1",)}))
 
-        assert_that(logging.warning.call_count).is_true()
-        assert_that(logging.warning.call_args) \
-            .is_equal_to(call('Missing configuration for schedule job. '
-                              'sarah.bot.plugins.bmw_quotes. Skipping.'))
-
-    def test_add_schedule_job(self):
-        slack = Slack(
-            token='spam_ham_egg',
-            max_workers=1,
-            plugins=(('sarah.bot.plugins.bmw_quotes',
-                      {'schedule': {'channels': ('U06TXXXXX',)}}),))
-        slack.connect = lambda: True
-        slack.run()
-
-        jobs = slack.scheduler.get_jobs()
-        assert_that(jobs).is_length(1)
-        assert_that(jobs[0]).has_id('sarah.bot.plugins.bmw_quotes.bmw_quotes')
-        assert_that(jobs[0].trigger).has_interval_length(300)
+        with patch.object(slack.client,
+                          "post",
+                          return_value=dict()):
+            ret()
+            assert_that(slack.client.post.call_count) \
+                .is_equal_to(1)
