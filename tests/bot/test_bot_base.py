@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, Callable
 import sys
 from apscheduler.schedulers.background import BackgroundScheduler
 from assertpy import assert_that
-from mock import patch, PropertyMock
+from unittest.mock import patch, PropertyMock
 
 from sarah.bot import Base
 from sarah.bot.values import CommandMessage, ScheduledCommand, Command, \

@@ -7,7 +7,7 @@ from time import sleep
 
 import pytest
 from assertpy import assert_that
-from mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch, call
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.stanza import Message
@@ -150,7 +150,7 @@ class TestMessage(object):
             self.wait_future_finish(hipchat.message(msg))
             assert_that(hipchat.respond.call_count).is_equal_to(1)
             assert_that(msg.reply.call_count).is_equal_to(1)
-            assert_that(msg.reply.call_args).is_equal_to(call('spam'))
+            assert_that(msg.reply.call_args == call('spam')).is_true()
 
 
 class TestGenerateScheduleJob(object):
