@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import concurrent
+import inspect
 import logging
-import types
-from concurrent.futures import ALL_COMPLETED
+from concurrent.futures import ALL_COMPLETED, Future
 from time import sleep
+
 import pytest
 from assertpy import assert_that
 from mock import MagicMock, call, patch
@@ -12,12 +13,14 @@ from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.stanza import Message
 from sleekxmpp.test import TestSocket
 from sleekxmpp.xmlstream import JID
-import sarah.bot.plugins.simple_counter
-from sarah.bot.hipchat import HipChat, SarahHipChatException
-from sarah.bot.values import UserContext, CommandMessage, Command
 
+import sarah.bot.hipchat
+from sarah.bot.hipchat import HipChat, SarahHipChatException
 
 # noinspection PyProtectedMember
+from sarah.bot.values import ScheduledCommand
+
+
 class MockXMPP(ClientXMPP):
     def __init__(self, *args):
         super().__init__(*args, sasl_mech=None)
@@ -42,8 +45,7 @@ class TestInit(object):
                           jid='test@localhost',
                           password='password',
                           rooms=['123_homer@localhost'],
-                          plugins=(('sarah.bot.plugins.simple_counter', {}),
-                                   ('sarah.bot.plugins.echo', {})),
+                          plugins=(),
                           proxy={'host': 'localhost',
                                  'port': 1234,
                                  'username': 'homers',
@@ -71,43 +73,8 @@ class TestInit(object):
             .is_instance_of(JID) \
             .is_equal_to(JID('test@localhost', cache_lock=True))
 
-    def test_load_plugins(self):
-        hipchat = HipChat(nick='Sarah',
-                          jid='test@localhost',
-                          password='password',
-                          plugins=(('sarah.bot.plugins.simple_counter', {}),
-                                   ('sarah.bot.plugins.echo', {})),
-                          proxy={'host': 'localhost',
-                                 'port': 1234,
-                                 'username': 'homers',
-                                 'password': 'mypassword'})
 
-        hipchat.load_plugins()
-
-        assert_that(hipchat.commands).extract('name').contains('.count',
-                                                               '.reset_count',
-                                                               '.echo')
-
-        assert_that(hipchat.commands) \
-            .extract('name', 'module_name') \
-            .contains_sequence(('.count', 'sarah.bot.plugins.simple_counter'),
-                               ('.reset_count',
-                                'sarah.bot.plugins.simple_counter'),
-                               ('.echo', 'sarah.bot.plugins.echo'))
-
-        for command in hipchat.commands:
-            assert_that(command.function).is_type_of(types.FunctionType)
-
-    def test_non_existing_plugin(self):
-        h = HipChat(nick='Sarah',
-                    jid='test@localhost',
-                    password='password',
-                    plugins=(('spam.ham.egg.onion', {}),))
-        h.load_plugins()
-
-        assert_that(h.commands).is_empty()
-        assert_that(h.scheduler.get_jobs()).is_empty()
-
+class TestConnect(object):
     def test_connection_fail(self):
         hipchat = HipChat(nick='Sarah',
                           jid='test@localhost',
@@ -124,54 +91,6 @@ class TestInit(object):
                 .matches("Couldn't connect to server\.")
             assert_that(mock_connect.call_count).is_equal_to(1)
 
-    def test_run(self):
-        hipchat = HipChat(nick='Sarah',
-                          jid='test@localhost',
-                          password='password')
-
-        with patch.object(hipchat.client, 'connect', return_value=True):
-            with patch.object(
-                    hipchat.client,
-                    'process',
-                    return_value=True) as mock_client_process:
-                hipchat.run()
-
-                assert_that(mock_client_process.call_count).is_equal_to(1)
-                assert_that(hipchat.scheduler.running).is_true()
-
-
-# noinspection PyUnresolvedReferences
-class TestFindCommand(object):
-    # noinspection PyUnusedLocal
-    @pytest.fixture
-    def hipchat(self, request):
-        # NO h.start() for this test
-        h = HipChat(nick='Sarah',
-                    jid='test@localhost',
-                    password='password',
-                    plugins=(('sarah.bot.plugins.simple_counter',
-                              {'spam': 'ham'}),
-                             ('sarah.bot.plugins.echo',)))
-        h.load_plugins()
-        return h
-
-    def test_no_corresponding_command(self, hipchat):
-        assert_that(hipchat.find_command('egg')).is_none()
-
-    def test_echo(self, hipchat):
-        assert_that(hipchat.find_command('.echo spam ham')) \
-            .is_instance_of(Command) \
-            .has_config({}) \
-            .has_name('.echo') \
-            .has_module_name('sarah.bot.plugins.echo')
-
-    def test_count(self, hipchat):
-        assert_that(hipchat.find_command('.count spam')) \
-            .is_instance_of(Command) \
-            .has_config({'spam': 'ham'}) \
-            .has_name('.count') \
-            .has_module_name('sarah.bot.plugins.simple_counter')
-
 
 # noinspection PyUnresolvedReferences
 class TestMessage(object):
@@ -180,9 +99,7 @@ class TestMessage(object):
         h = HipChat(nick='Sarah',
                     jid='test@localhost',
                     password='password',
-                    plugins=(('sarah.bot.plugins.hello', {}),
-                             ('sarah.bot.plugins.simple_counter', {}),
-                             ('sarah.bot.plugins.echo',)),
+                    plugins=None,
                     max_workers=4)
         h.client.connect = lambda: True
         h.client.process = lambda *args, **kwargs: True
@@ -205,8 +122,23 @@ class TestMessage(object):
 
         msg.reply = MagicMock()
 
-        self.wait_future_finish(hipchat.message(msg))
-        assert_that(msg.reply.call_count).is_equal_to(0)
+        with patch.object(hipchat, 'respond', return_value=None):
+            self.wait_future_finish(hipchat.message(msg))
+            assert_that(msg.reply.call_count).is_equal_to(0)
+
+    def test_skip_own_message(self, hipchat):
+        msg = Message(hipchat.client, stype='groupchat')
+        msg['body'] = 'test body'
+
+        hipchat.respond = MagicMock()
+
+        with patch.object(msg, "get_mucroom", return_value="abc"):
+            with patch.dict(hipchat.client.plugin['xep_0045'].ourNicks,
+                            {'abc': "homer"},
+                            clear=True):
+                with patch.object(msg, "get_mucnick", return_value="homer"):
+                    self.wait_future_finish(hipchat.message(msg))
+                    assert_that(hipchat.respond.call_count).is_equal_to(0)
 
     def test_echo_message(self, hipchat):
         msg = Message(hipchat.client, stype='normal')
@@ -214,66 +146,53 @@ class TestMessage(object):
 
         msg.reply = MagicMock()
 
-        self.wait_future_finish(hipchat.message(msg))
-        assert_that(msg.reply.call_count).is_equal_to(1)
-        assert_that(msg.reply.call_args).is_equal_to(call('spam'))
+        with patch.object(hipchat, 'respond', return_value="spam"):
+            self.wait_future_finish(hipchat.message(msg))
+            assert_that(hipchat.respond.call_count).is_equal_to(1)
+            assert_that(msg.reply.call_count).is_equal_to(1)
+            assert_that(msg.reply.call_args).is_equal_to(call('spam'))
 
-    def test_count_message(self, hipchat):
-        msg = Message(hipchat.client,
-                      stype='normal',
-                      sfrom='123_homer@localhost/Oklahomer')
-        msg['body'] = '.count ham'
 
-        msg.reply = MagicMock()
+class TestGenerateScheduleJob(object):
+    @pytest.fixture(scope='function')
+    def hipchat(self, request):
+        h = HipChat(nick='Sarah',
+                    jid='test@localhost',
+                    password='password',
+                    plugins=None,
+                    max_workers=4)
 
-        self.wait_future_finish(hipchat.message(msg))
-        assert_that(msg.reply.call_count).is_equal_to(1)
-        assert_that(msg.reply.call_args).is_equal_to(call('1'))
+        return h
 
-        self.wait_future_finish(hipchat.message(msg))
-        assert_that(msg.reply.call_count).is_equal_to(2)
-        assert_that(msg.reply.call_args).is_equal_to(call('2'))
+    def test_missing_room_settings(self, hipchat):
+        with patch.object(logging,
+                          'warning',
+                          return_value=None):
+            ret = hipchat.generate_schedule_job(
+                    ScheduledCommand("name",
+                                     lambda: "dummy",
+                                     "module_name",
+                                     {},
+                                     {}))
 
-        msg['body'] = '.count egg'
-        self.wait_future_finish(hipchat.message(msg))
-        assert_that(msg.reply.call_count).is_equal_to(3)
-        assert_that(msg.reply.call_args).is_equal_to(call('1'))
+            assert_that(logging.warning.call_count).is_equal_to(1)
+            assert_that(ret).is_none()
 
-        stash = vars(sarah.bot.plugins.simple_counter) \
-            .get('__stash') \
-            .get('hipchat')
-        assert_that(stash) \
-            .is_equal_to({'123_homer@localhost/Oklahomer': {'ham': 2,
-                                                            'egg': 1}})
+    def test_valid_settings(self, hipchat):
+        ret = hipchat.generate_schedule_job(
+                ScheduledCommand("name",
+                                 lambda _: "dummy",
+                                 "module_name",
+                                 {},
+                                 {'rooms': ("room1",)}))
+        assert_that(inspect.isfunction(ret)).is_true()
 
-    def test_conversation(self, hipchat):
-        user_key = '123_homer@localhost/Oklahomer'
-
-        # Initial message
-        assert_that(hipchat.respond(user_key, '.hello')) \
-            .is_equal_to("Hello. How are you feeling today?")
-
-        # Context is set
-        assert_that(hipchat.user_context_map.get(user_key)) \
-            .is_instance_of(UserContext)
-
-        # Wrong formatted message results with help message
-        assert_that(hipchat.respond(user_key, "SomeBizarreText")) \
-            .is_equal_to("Say Good or Bad, please.")
-
-        assert_that(hipchat.respond(user_key, "Bad")) \
-            .is_equal_to("Are you sick?")
-
-        # Still in conversation
-        assert_that(hipchat.user_context_map.get(user_key)) \
-            .is_instance_of(UserContext)
-
-        # The last yes/no question
-        assert_that(hipchat.respond(user_key, "Yes")) \
-            .is_equal_to("I'm sorry to hear that. Hope you get better, soon.")
-
-        # Context is removed
-        assert_that(hipchat.user_context_map.get(user_key)).is_none()
+        with patch.object(hipchat,
+                          "enqueue_sending_message",
+                          return_value=Future()):
+            ret()
+            assert_that(hipchat.enqueue_sending_message.call_count) \
+                .is_equal_to(1)
 
 
 # noinspection PyUnresolvedReferences
@@ -376,74 +295,3 @@ class TestJoinRooms(object):
             assert_that(h.client.plugin['xep_0045']) \
                 .has_rooms({}) \
                 .has_ourNicks({})
-
-
-# noinspection PyUnresolvedReferences
-class TestSchedule(object):
-    def test_missing_config(self):
-        logging.warning = MagicMock()
-
-        hipchat = HipChat(nick='Sarah',
-                          jid='test@localhost',
-                          password='password',
-                          plugins=(('sarah.bot.plugins.bmw_quotes',),))
-        hipchat.connect = lambda: True
-        hipchat.run()
-
-        assert_that(hipchat.scheduler.get_jobs()) \
-            .described_as("No module is loaded") \
-            .is_empty()
-        assert_that(logging.warning.call_count).is_equal_to(1)
-        assert_that(logging.warning.call_args) \
-            .described_as("Configuration is entirely missing.") \
-            .is_equal_to(call('Missing configuration for schedule job. '
-                              'sarah.bot.plugins.bmw_quotes. Skipping.'))
-
-    def test_missing_rooms_config(self):
-        logging.warning = MagicMock()
-
-        hipchat = HipChat(nick='Sarah',
-                          jid='test@localhost',
-                          password='password',
-                          plugins=(('sarah.bot.plugins.bmw_quotes',
-                                    {"dummy": "spam"}),))
-        hipchat.connect = lambda: True
-        hipchat.load_plugins()
-        hipchat.run()
-
-        assert_that(logging.warning.call_count).is_true()
-        assert_that(logging.warning.call_args) \
-            .described_as("Configuration is given, "
-                          "but required field is missing") \
-            .is_equal_to(call('Missing configuration for schedule job. '
-                              'sarah.bot.plugins.bmw_quotes. Skipping.'))
-
-    def test_add_schedule_job(self):
-        hipchat = HipChat(nick='Sarah',
-                          jid='test@localhost',
-                          password='password',
-                          plugins=(('sarah.bot.plugins.bmw_quotes',
-                                    {'schedule': {
-                                        'rooms': ('123_homer@localhost',)}}),))
-        hipchat.connect = lambda: True
-        hipchat.run()
-
-        jobs = hipchat.scheduler.get_jobs()
-        assert_that(jobs).is_length(1)
-        assert_that(jobs[0]).has_id('sarah.bot.plugins.bmw_quotes.bmw_quotes')
-        assert_that(jobs[0].trigger).has_interval_length(300)
-
-
-class TestCommandMessage(object):
-    def test_init(self):
-        msg = CommandMessage(original_text='.count foo',
-                             text='foo',
-                             sender='123_homer@localhost/Oklahomer')
-        assert_that(msg) \
-            .has_original_text('.count foo') \
-            .has_text('foo') \
-            .has_sender('123_homer@localhost/Oklahomer')
-
-        # Can't change
-        msg.__original_text = 'foo'
-        assert_that(msg).has_original_text('.count foo')
