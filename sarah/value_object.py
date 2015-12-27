@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import hashlib
+import inspect
 from inspect import getfullargspec  # type: ignore
 from typing import Any, Dict
 
@@ -43,6 +44,11 @@ class ValueObject(object):
         return self.__stash[key]
 
     def __setitem__(self, key, value) -> Any:
+        # Allows value modification only in __init__.
+        caller_method = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
+        if caller_method != "__init__":
+            raise AttributeError
+
         self.__stash[key] = value
 
     def __repr__(self):

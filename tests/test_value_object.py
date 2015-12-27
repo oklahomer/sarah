@@ -55,6 +55,13 @@ class TestOverride(object):
 
     assert_that(hash(obj1)).is_equal_to(hash(obj2))
 
+    with pytest.raises(AttributeError) as e:
+        obj1['pattern'] = re.compile("str")
+
+        assert_that(e) \
+            .described_as("Can't override attribute after initialization") \
+            .is_instance_of(AttributeError)
+
 
 class TestMalformedClassDeclaration(object):
     class MyValueWithKWArgs(ValueObject):
