@@ -2,7 +2,7 @@
 import hashlib
 import inspect
 from inspect import getfullargspec  # type: ignore
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 
 class ValueObject(object):
@@ -34,7 +34,7 @@ class ValueObject(object):
 
         return self
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Values are already set on __new__.
         # Override this method when value modification on initialization is
         # required.
@@ -43,7 +43,7 @@ class ValueObject(object):
     def __getitem__(self, key) -> Any:
         return self.__stash[key]
 
-    def __setitem__(self, key, value) -> Any:
+    def __setitem__(self, key, value) -> None:
         # Allows value modification only in __init__.
         caller_method = inspect.getouterframes(inspect.currentframe(), 2)[1][3]
         if caller_method != "__init__":
@@ -51,7 +51,7 @@ class ValueObject(object):
 
         self.__stash[key] = value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '%s(%s)' % (self.__class__.__name__, self.__stash)
 
     def __hash__(self) -> int:
@@ -66,7 +66,7 @@ class ValueObject(object):
     def __ne__(self, other) -> bool:
         return not self.__eq__(other)
 
-    def keys(self):
+    def keys(self) -> List[str]:
         return self.__stash.keys()
 
 

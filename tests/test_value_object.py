@@ -34,6 +34,7 @@ class TestInit(object):
 
     assert_that(obj1).is_equal_to(obj2)
     assert_that(hash(obj1)).is_equal_to(hash(obj2))
+    assert_that(obj1.keys()).contains("key1", "key2", "key3")
 
 
 class TestOverride(object):
