@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # https://api.slack.com/rtm
+"""Provide Slack interaction."""
 import json
 import logging
 from concurrent.futures import Future  # type: ignore
@@ -15,6 +16,10 @@ from sarah.exceptions import SarahException
 try:
     from typing import Any, Union
 
+    # Work-around to avoid pyflakes warning "imported but unused" regarding
+    # mypy's comment-styled type hinting
+    # http://www.laurivan.com/make-pyflakespylint-ignore-unused-imports/
+    # http://stackoverflow.com/questions/5033727/how-do-i-get-pyflakes-to-ignore-a-statement/12121404#12121404
     assert Any
     assert Union
 except AssertionError:
@@ -22,21 +27,48 @@ except AssertionError:
 
 
 class SlackClient(object):
+    """A client module that provides access to Slack web API."""
+
     def __init__(self,
                  token: str,
                  base_url: str = 'https://slack.com/api/') -> None:
+        """Initializer.
+
+        :param token: Access token to be passed to Slack endpoint.
+        :param base_url: Optional Slack API base url.
+        :return: None.
+        """
         self.base_url = base_url
         self.token = token
 
     def generate_endpoint(self, method: str) -> str:
+        """Provide Slack endpoint with the given API method.
+
+        See https://api.slack.com/methods for all provided methods.
+
+        :param method: Slack method.
+        :return: Stringified URL.
+        """
         # https://api.slack.com/methods
         return self.base_url + method if self.base_url.endswith('/') else \
             self.base_url + '/' + method
 
     def get(self, method) -> Dict:
+        """Wrapper method to make HTTP GET request with given Slack API method.
+
+        :param method: Slack API method.
+        :return: Dictionary that contains response.
+        """
         return self.request('GET', method)
 
     def post(self, method, params=None, data=None) -> Dict:
+        """Wrapper method to make HTTP POST request with given Slack API method.
+
+        :param data: Sending query parameter.
+        :param params: Sending data.
+        :param method: Slack API method.
+        :return: Dictionary that contains response.
+        """
         return self.request('POST', method, params, data)
 
     def request(self,
@@ -44,6 +76,14 @@ class SlackClient(object):
                 method: str,
                 params: Dict = None,
                 data: Dict = None) -> Dict:
+        """Make HTTP request and return response as dictionary.
+
+        :param http_method: HTTP request method.
+        :param method: Slack API method.
+        :param params: Sending query parameter.
+        :param data: Sending data.
+        :return: Dictionary that contains response.
+        """
         http_method = http_method.upper()
         endpoint = self.generate_endpoint(method)
 
@@ -155,11 +195,19 @@ EventTypeMap = Dict[str, Dict[str, Union[Callable[..., Optional[Any]], str]]]
 
 
 class Slack(Base):
+    """Provide bot for Slack."""
+
     def __init__(self,
                  token: str = '',
                  plugins: Iterable[PluginConfig] = None,
                  max_workers: int = None) -> None:
+        """Initializer.
 
+        :param token: Access token provided by Slack.
+        :param plugins: List of plugin modules.
+        :param max_workers: Optional number of worker threads.
+        :return: None
+        """
         super().__init__(plugins=plugins, max_workers=max_workers)
 
         self.client = self.setup_client(token=token)
@@ -168,9 +216,18 @@ class Slack(Base):
         self.connect_attempt_count = 0
 
     def setup_client(self, token: str) -> SlackClient:
+        """Setup ClackClient and return its instance.
+
+        :param token: Slack access token.
+        :return: SlackClient instance
+        """
         return SlackClient(token=token)
 
     def connect(self) -> None:
+        """Connect to Slack websocket server and start interaction.
+
+        :return: None
+        """
         while True:
             if self.connect_attempt_count >= 10:
                 logging.error("Attempted 10 times, but all failed. Quitting.")
@@ -185,6 +242,7 @@ class Slack(Base):
             time.sleep(self.connect_attempt_count)
 
     def try_connect(self) -> None:
+        """Try establish connection with Slack websocket server."""
         try:
             response = self.client.get('rtm.start')
             if 'url' not in response:
@@ -203,6 +261,16 @@ class Slack(Base):
     def generate_schedule_job(self,
                               command: ScheduledCommand) \
             -> Optional[Callable[..., None]]:
+        """Generate callback function to be registered to scheduler.
+
+        This creates a function that execute given command and then handle the
+        command response. If the response is SlackMessage instance, it make
+        HTTP POST request to Slack web API endpoint. If string is returned,
+        then it submit it to the message sending worker.
+
+        :param command: ScheduledCommand object that holds job information
+        :return: Optional callable object to be scheduled
+        """
         channels = command.schedule_config.pop('channels', [])
         if not channels:
             logging.warning(
@@ -228,6 +296,12 @@ class Slack(Base):
 
     @concurrent
     def message(self, _: WebSocketApp, event: str) -> None:
+        """Receive event from Slack and dispatch it to corresponding method.
+
+        :param _: WebSocketApp instance. This is not to be used here.
+        :param event: JSON string that contains event information.
+        :return: None
+        """
         decoded_event = json.loads(event)
 
         if 'ok' in decoded_event and 'reply_to' in decoded_event:
@@ -289,10 +363,23 @@ class Slack(Base):
         return None
 
     def handle_hello(self, _: Dict) -> None:
+        """Handle hello event.
+
+        This is called when connection is established.
+
+        :param _: Dictionary that represent event. This is not used here.
+        :return: None
+        """
         self.connect_attempt_count = 0  # Reset retry count
         logging.info('Successfully connected to the server.')
 
     def handle_message(self, content: Dict) -> Optional[Future]:
+        """Handle message event.
+
+        :param content: Dictionary that represent event.
+        :return: Optional Future instance that represent message sending
+            result.
+        """
         # content
         # {
         #     "type":"message",
@@ -317,30 +404,63 @@ class Slack(Base):
             data = {'channel': content["channel"]}
             data.update(ret.to_request_params())
             self.client.post('chat.postMessage', data=data)
+            return None
         elif isinstance(ret, str):
             return self.enqueue_sending_message(self.send_message,
                                                 content['channel'],
                                                 ret)
 
     def handle_team_migration(self, _: Dict) -> None:
-        # https://api.slack.com/events/team_migration_started
-        # "When clients recieve this event they can immediately start a
-        # reconnection process by calling rtm.start again."
+        """Handle team_migration_started event.
+
+        https://api.slack.com/events/team_migration_started
+        "When clients recieve this event they can immediately start a
+        reconnection process by calling rtm.start again."
+
+        :param _: Dictionary that represent event.
+        :return: None
+        """
         logging.info("Team migration started.")
 
     def on_error(self, _: WebSocketApp, error: Exception) -> None:
+        """Callback method called by WebSocketApp when error occurred.
+
+        :param _: WebSocketApp instance that is not currently used.
+        :param error: Exception instance
+        :return: None
+        """
         logging.error("error %s", error)
 
     def on_open(self, _: WebSocketApp) -> None:
+        """Callback method called by WebSocketApp on connection establishment.
+
+        :param _: WebSocketApp instance that is not currently used.
+        :return: None
+        """
         logging.info('connected')
 
     def on_close(self, _: WebSocketApp, code: int, reason: str) -> None:
+        """Callback method called by WebSocketApp when connection is closed.
+
+        :param _: WebSocketApp instance that is not currently used.
+        :param code: Closing code described in RFC6455.
+            https://tools.ietf.org/html/rfc6455#section-7.4
+        :param reason: Closing reason.
+        :return: None
+        """
         logging.info('connection closed. code: %d. reason: %s', code, reason)
 
     def send_message(self,
                      channel: str,
                      text: str,
                      message_type: str = 'message') -> None:
+        """Send message to Slack via websocket connection.
+
+        :param channel: Target channel to send message.
+        :param text: Sending text.
+        :param message_type: Message type. Default is "message."
+        :return: None
+        """
         params = {'channel': channel,
                   'text': text,
                   'type': message_type,
@@ -348,13 +468,22 @@ class Slack(Base):
         self.ws.send(json.dumps(params))
 
     def next_message_id(self) -> int:
-        # https://api.slack.com/rtm#sending_messages
-        # Every event should have a unique (for that connection) positive
-        # integer ID. All replies to that message will include this ID.
+        """Return unique ID for sending message.
+
+        https://api.slack.com/rtm#sending_messages
+        Every event should have a unique (for that connection) positive
+        integer ID. All replies to that message will include this ID.
+
+        :return: Unique ID as int
+        """
         self.message_id += 1
         return self.message_id
 
     def stop(self) -> None:
+        """Stop interaction with Slack.
+
+        :return: None
+        """
         super().stop()
         logging.info('STOP SLACK INTEGRATION')
         self.ws.close()

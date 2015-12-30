@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Provide HipChat interaction."""
 import logging
 from concurrent.futures import Future  # type: ignore
 from sleekxmpp import ClientXMPP, Message  # type: ignore
@@ -10,6 +11,8 @@ from sarah.exceptions import SarahException
 
 
 class HipChat(Base):
+    """Provide bot for HipChat."""
+
     def __init__(self,
                  plugins: Iterable[PluginConfig] = None,
                  jid: str = '',
@@ -18,7 +21,17 @@ class HipChat(Base):
                  nick: str = '',
                  proxy: Dict = None,
                  max_workers: int = None) -> None:
+        """Initializer.
 
+        :param plugins: List of plugin modules.
+        :param jid: JID provided by HipChat.
+        :param password: Password provided by HipChat.
+        :param rooms: Rooms to join.
+        :param nick: nickname to use.
+        :param proxy: Proxy setting as dictionary.
+        :param max_workers: Optional number of worker threads.
+        :return: None
+        """
         super().__init__(plugins=plugins, max_workers=max_workers)
 
         self.rooms = rooms if rooms else []  # type: Iterable[str]
@@ -28,6 +41,14 @@ class HipChat(Base):
     def generate_schedule_job(self,
                               command: ScheduledCommand) \
             -> Optional[Callable[..., None]]:
+        """Generate callback function to be registered to scheduler.
+
+        This creates a function that execute given command, handle the command
+        response, and then submit response to message sending worker.
+
+        :param command: ScheduledCommand object that holds job information
+        :return: Optional callable object to be scheduled
+        """
         # pop room configuration to leave minimal information for command
         # argument
         rooms = command.schedule_config.pop('rooms', [])
@@ -50,6 +71,10 @@ class HipChat(Base):
         return job_function
 
     def connect(self) -> None:
+        """Connect to Slack websocket server and start interaction.
+
+        :return: None
+        """
         if not self.client.connect():
             raise SarahHipChatException("Couldn't connect to server.")
         self.client.process(block=True)
@@ -58,6 +83,13 @@ class HipChat(Base):
                           jid: str,
                           password: str,
                           proxy: Dict = None) -> ClientXMPP:
+        """Setup XMPP client and return its instance.
+
+        :param jid: JID provided by HipChat.
+        :param password: Password provided by HipChat.
+        :param proxy: Proxy setting in dictionary.
+        :return: ClientXMPP instance
+        """
         client = ClientXMPP(jid, password)
 
         if proxy:
@@ -77,6 +109,14 @@ class HipChat(Base):
         return client
 
     def session_start(self, _: Dict) -> None:
+        """Callback method called by ClientXMPP on connection establishment.
+
+        This explicitly sends Presence stanza to HipChat server, otherwise
+        HipChat will not sends room messages to us.
+
+        :param _: Dictionary that represent event.
+        :return: None
+        """
         self.client.send_presence()
 
         # http://sleekxmpp.readthedocs.org/en/latest/getting_started/echobot.html
@@ -104,6 +144,11 @@ class HipChat(Base):
 
     @concurrent
     def join_rooms(self, _: Dict) -> None:
+        """Join rooms.
+
+        :param _: Dictionary that represent given event.
+        :return: None
+        """
         if not self.rooms:
             return
 
@@ -117,6 +162,12 @@ class HipChat(Base):
 
     @concurrent
     def message(self, msg: Message) -> Optional[Future]:
+        """Handle received message and submit the result to message worker.
+
+        :param msg: Received message.
+        :return: Optional Future instance that represent message sending
+            result.
+        """
         if msg['delay']['stamp']:
             # Avoid answering to all past messages when joining the room.
             # xep_0203 plugin required.
@@ -143,6 +194,10 @@ class HipChat(Base):
             return self.enqueue_sending_message(lambda: msg.reply(ret).send())
 
     def stop(self) -> None:
+        """Stop interaction with HipChat.
+
+        :return: None
+        """
         super().stop()
         logging.info('STOP HIPCHAT INTEGRATION')
         if hasattr(self, 'client') and self.client is not None:

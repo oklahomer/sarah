@@ -126,7 +126,6 @@ class Command(ValueObject):
 
 
 class ScheduledCommand(ValueObject):
-    # noinspection PyMissingConstructor
     def __init__(self,
                  name: str,
                  function: ScheduledFunction,
