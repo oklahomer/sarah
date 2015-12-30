@@ -91,6 +91,15 @@ class TestConnect(object):
                 .matches("Couldn't connect to server\.")
             assert_that(mock_connect.call_count).is_equal_to(1)
 
+    def test_disconnect(self):
+        hipchat = HipChat(nick='Sarah',
+                          jid='test@localhost',
+                          password='password')
+
+        hipchat.client = MagicMock()
+        hipchat.disconnect()
+        assert_that(hipchat.client.disconnect.call_count).is_equal_to(1)
+
 
 # noinspection PyUnresolvedReferences
 class TestMessage(object):

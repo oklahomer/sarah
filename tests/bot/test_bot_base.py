@@ -20,7 +20,8 @@ def create_concrete_class():
     return type('BaseImpl',
                 (Base,),
                 {'connect': lambda self: None,
-                 'generate_schedule_job': lambda self, command: None})
+                 'generate_schedule_job': lambda self, command: None,
+                 'disconnect': lambda self: None})
 
 
 class TestInit(object):
@@ -70,7 +71,12 @@ class TestStop(object):
         base_impl = kls(None, 3)
         base_impl.run()
 
-        base_impl.stop()
+        with patch.object(base_impl,
+                          "disconnect",
+                          return_value=None):
+            base_impl.stop()
+            assert_that(base_impl.disconnect.call_count).is_equal_to(1)
+        assert_that(base_impl.running).is_false()
         assert_that(base_impl.worker._shutdown).is_true()
         assert_that(base_impl.message_worker._shutdown).is_true()
         assert_that(base_impl.scheduler.running).is_false()
@@ -287,6 +293,9 @@ class TestAddScheduleJobs(object):
             def connect(self) -> None:
                 pass
 
+            def disconnect(self) -> None:
+                pass
+
             def generate_schedule_job(self,
                                       command: ScheduledCommand) \
                     -> Optional[Callable[..., None]]:
@@ -310,6 +319,9 @@ class TestAddScheduleJobs(object):
     def test_missing_returning_function(self):
         class BaseImpl(Base):
             def connect(self) -> None:
+                pass
+
+            def disconnect(self) -> None:
                 pass
 
             def generate_schedule_job(self,

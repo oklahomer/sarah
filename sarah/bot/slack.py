@@ -228,7 +228,7 @@ class Slack(Base):
 
         :return: None
         """
-        while True:
+        while self.running:
             if self.connect_attempt_count >= 10:
                 logging.error("Attempted 10 times, but all failed. Quitting.")
                 break
@@ -479,13 +479,11 @@ class Slack(Base):
         self.message_id += 1
         return self.message_id
 
-    def stop(self) -> None:
-        """Stop interaction with Slack.
+    def disconnect(self) -> None:
+        """Disconnect from Slack websocket server
 
         :return: None
         """
-        super().stop()
-        logging.info('STOP SLACK INTEGRATION')
         self.ws.close()
 
 
