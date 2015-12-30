@@ -2,7 +2,8 @@
 import os
 import pytest
 from assertpy import assert_that
-from sarah.main import Sarah, SarahException
+from main import Sarah
+from sarah.exceptions import SarahException
 
 
 class TestInit(object):

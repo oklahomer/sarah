@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Provide basic structure and functionality for bot implementation."""
 import abc
 import imp
 import importlib
@@ -31,6 +32,8 @@ from sarah.thread import ThreadExecutor
 
 
 class Base(object, metaclass=abc.ABCMeta):
+    """Base class of all bot implementation."""
+
     __commands = {}  # type: Dict[str, List[Command]]
     __schedules = {}  # type: Dict[str, List[ScheduledCommand]]
     __instances = {}  # type: Dict[str, Base] # Should be its subclass
@@ -38,6 +41,17 @@ class Base(object, metaclass=abc.ABCMeta):
     def __init__(self,
                  plugins: Iterable[PluginConfig] = None,
                  max_workers: Optional[int] = None) -> None:
+        """Initializer.
+
+        This may be extended by each bot implementation to do some extra setup,
+        but should not be overridden. For the term "extend" and "override,"
+        refer to pep257.
+
+        :param plugins: List of plugin modules to import
+        :param max_workers: Optional number of worker threads.
+            Methods with @concurrent decorator will be submitted to this thread
+            pool.
+        """
         if not plugins:
             plugins = ()
 
@@ -70,13 +84,36 @@ class Base(object, metaclass=abc.ABCMeta):
     def generate_schedule_job(self,
                               command: ScheduledCommand) \
             -> Optional[Callable[..., None]]:
+        """Generate callback function to be registered to scheduler.
+
+        Since the job handling behaviour varies depending on each bot
+        implementation, it is each concrete classes' responsibility to
+        generate scheduled job. Returned function will be registered to
+        scheduler and will be executed.
+
+        :param command: ScheduledCommand object that holds job information
+        :return: Optional callable object to be scheduled
+        """
         pass
 
     @abc.abstractmethod
     def connect(self) -> None:
+        """Connect to server.
+
+        Concrete class must override this to establish bot-to-server
+        connection. This is called at the end of run() after all setup is done.
+        """
         pass
 
     def run(self) -> None:
+        """Start integration with server.
+
+        Based on the settings done in initialization, this will...
+            - start workers
+            - load plugin modules
+            - add scheduled jobs and start scheduler
+            - connect to server
+        """
         # Setup required workers
         self.worker = ThreadPoolExecutor(max_workers=self.max_workers) \
             if self.max_workers else None
@@ -92,13 +129,11 @@ class Base(object, metaclass=abc.ABCMeta):
         self.connect()
 
     def stop(self) -> None:
-        logging.info('STOP MESSAGE WORKER')
-        self.message_worker.shutdown(wait=False)
+        """Stop.
 
-        logging.info('STOP CONCURRENT WORKER')
-        if self.worker:
-            self.worker.shutdown(wait=False)
-
+        Concrete class should extend this method to execute each bot specific
+        tasks and call this original method to quit everything.
+        """
         logging.info('STOP SCHEDULER')
         if self.scheduler.running:
             try:
@@ -107,8 +142,29 @@ class Base(object, metaclass=abc.ABCMeta):
             except Exception as e:
                 logging.error(e)
 
+        logging.info('STOP CONCURRENT WORKER')
+        if self.worker:
+            self.worker.shutdown(wait=False)
+
+        logging.info('STOP MESSAGE WORKER')
+        self.message_worker.shutdown(wait=False)
+
     @classmethod
     def concurrent(cls, callback_function):
+        """A decorator to provide concurrent job mechanism.
+
+        A function wrapped by this decorator will be fed to worker thread pool
+        and waits for execution. If max_workers setting is None on
+        initialization, thread pool is not created so the given function will
+        run immediately.
+
+        Since bot, in nature, requires a lot of I/O bound tasks such as
+        retrieving data from 3rd party web API so it is suitable to feed those
+        tasks to thread pool. For CPU bound concurrent tasks, consider
+        employing multi-process approach.
+
+        :param callback_function: Function to be fed to worker thread pool.
+        """
         @wraps(callback_function)
         def wrapper(self, *args, **kwargs):
             if self.worker:
@@ -122,14 +178,29 @@ class Base(object, metaclass=abc.ABCMeta):
         return wrapper
 
     def enqueue_sending_message(self, function, *args, **kwargs) -> Future:
+        """Submit given callback function to message worker.
+
+        The message_worker is a single-threaded executor, so it is safe to say
+        only one message sending task run at a time.
+
+        :param function: Callable to be executed in worker thread.
+        :param args: Arguments to be fed to function.
+        :param kwargs: Keyword arguments to be fed to function.
+        :return: Future object that represent the result of given job.
+        """
         return self.message_worker.submit(function, *args, **kwargs)
 
     def load_plugins(self) -> None:
+        """Load given plugin modules."""
         for module_name in self.plugin_config.keys():
             self.load_plugin(module_name)
 
     @staticmethod
     def load_plugin(module_name: str) -> None:
+        """Load given plugin module.
+
+        If the module is already loaded, it reloads to reflect any change.
+        """
         try:
             if module_name in sys.modules.keys():
                 imp.reload(sys.modules[module_name])
@@ -144,6 +215,26 @@ class Base(object, metaclass=abc.ABCMeta):
     def respond(self,
                 user_key: str,
                 user_input: str) -> Optional[Union[RichMessage, str]]:
+        """Receive user input and respond to it.
+
+        It checks if any UserContext is stored with the given user_key. If
+        found, consider this user is in a middle of "conversation" with a
+        plugin module. Then the user input is passed to the next_step of that
+        UserContext and proceed.
+
+        If there is no UserContext stored, see if any registered command is
+        applicable. If found, pass the user input to given plugin module
+        command and receive response.
+
+        Command response can be one of UserContext, RichMessage, or string.
+        When UserContext is returned, register this context with the user key
+        so the next input from the same user can proceed to next step.
+
+        :param user_key: Stringified unique user key. Format varies depending
+            on each bot implementation.
+        :param user_input: User input text.
+        :return: One of RichMessage, string, or None.
+        """
         user_context = self.user_context_map.get(user_key, None)
 
         if user_input == '.help':
@@ -218,22 +309,44 @@ class Base(object, metaclass=abc.ABCMeta):
             return ret
 
     def find_command(self, text: str) -> Optional[Command]:
+        """Receive user input text and return applicable command if any.
+
+        :param text: User input.
+        """
         return next((c for c in self.commands if text.startswith(c.name)),
                     None)
 
-    # Override this method to display rich help message
-    def help(self) -> str:
+    def help(self) -> Union[str, RichMessage]:
+        """Return stringified help message.
+
+        Override this method to provide more detailed or rich help message.
+        :return: String or RichMessage that contains help message
+        """
         return "\n".join(c.help for c in self.commands)
 
     @property
     def schedules(self) -> List[ScheduledCommand]:
+        """Return registered schedules.
+
+        :return: List of ScheduledCommand instances.
+        """
         cls = self.__class__
         return cls.__schedules.get(cls.__name__, [])
 
     @classmethod
     def schedule(cls, name: str) \
             -> Callable[[ScheduledFunction], ScheduledFunction]:
+        """A decorator to provide scheduled function.
 
+        When function with this decorator is found on module loading, this
+        searches for schedule configuration in the plugin configuration and
+        appends the combination of function and the configuration to schedules
+        list.
+
+        :param name: Name of the scheduled job.
+        :return: Callable that contains registering function. This is to ease
+            unit test for plugin modules.
+        """
         def wrapper(func: ScheduledFunction) -> ScheduledFunction:
             @wraps(func)
             def wrapped_function(given_config: Dict[str, Any]) \
@@ -274,6 +387,11 @@ class Base(object, metaclass=abc.ABCMeta):
         return wrapper
 
     def add_schedule_jobs(self, commands: Iterable[ScheduledCommand]) -> None:
+        """Add given function to scheduler.
+
+        :param commands: List of ScheduledCommand instances.
+        :return: None
+        """
         for command in commands:
             # self.add_schedule_job(command)
             job_function = self.generate_schedule_job(command)
@@ -289,6 +407,10 @@ class Base(object, metaclass=abc.ABCMeta):
 
     @property
     def commands(self) -> List[Command]:
+        """Return registered commands.
+
+        :return: List of Command instances.
+        """
         cls = self.__class__
         return cls.__commands.get(cls.__name__, [])
 
@@ -297,7 +419,18 @@ class Base(object, metaclass=abc.ABCMeta):
                 name: str,
                 examples: Iterable[str] = None) \
             -> Callable[[CommandFunction], CommandFunction]:
+        """A decorator to provide command function.
 
+        When function with this decorator is found on module loading, this
+        searches for configuration in the plugin configuration and appends the
+        combination of function and the configuration to commands list.
+
+        :param name: Name of the command.
+        :param examples: Optional list of string to be displayed as input
+            example.
+        :return: Callable that contains registering function. This is to ease
+            unit test for plugin modules.
+        """
         def wrapper(func: CommandFunction) -> CommandFunction:
             @wraps(func)
             def wrapped_function(command_message: CommandMessage,
