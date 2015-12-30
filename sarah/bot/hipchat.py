@@ -193,13 +193,11 @@ class HipChat(Base):
         if ret:
             return self.enqueue_sending_message(lambda: msg.reply(ret).send())
 
-    def stop(self) -> None:
-        """Stop interaction with HipChat.
+    def disconnect(self) -> None:
+        """Disconnect from HipChat server
 
         :return: None
         """
-        super().stop()
-        logging.info('STOP HIPCHAT INTEGRATION')
         if hasattr(self, 'client') and self.client is not None:
             self.client.socket.recv_data(self.client.stream_footer)
             self.client.disconnect()
