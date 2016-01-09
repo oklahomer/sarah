@@ -9,6 +9,7 @@ from typing import Dict, Optional, Callable, Any, Iterable, Union, Sequence, \
     List
 
 import requests
+import time
 
 from sarah import ValueObject
 from sarah.bot import Base
@@ -306,15 +307,50 @@ class Gitter(Base):
                    for room in rooms]
 
         for thread in threads:
-            thread.run()
+            thread.start()
+
+        while self.running:
+            if len([t for t in threads if t.is_alive()]):
+                # Check thread status every 5 secs.
+                time.sleep(5)
+            else:
+                logging.info("All connections are now closed.")
+                break
+
+        logging.info("Gitter interaction stopped. Exiting.")
 
     def connect_room(self, room: GitterClient.Room) -> None:
+        counter = ConnectAttemptionCounter()
+
+        while counter.can_retry():
+            counter.increment()
+
+            try:
+                self.try_connect_room(room, counter)
+            except Exception as e:
+                logging.error("Error on connecting room %s. %s.",
+                              room.url, e)
+
+            time.sleep(counter.count)
+
+        logging.error("Attempted 10 times, but all failed. Quitting. Room %s",
+                      room.url)
+
+    def try_connect_room(self,
+                         room: GitterClient.Room,
+                         counter: ConnectAttemptionCounter = None) -> None:
         headers = {'Accept': "application/json",
                    'Authorization': "Bearer " + self.token}
         endpoint = self.generate_endpoint(room.id)
         message_mapper = ObjectMapper(GitterClient.Message)
+
+        logging.info("Try connecting to room %s", room.url)
         with closing(
                 requests.get(endpoint, headers=headers, stream=True)) as r:
+            logging.info("Connected to room %s", room.url)
+            if counter:
+                counter.reset()
+
             for line in r.iter_lines():
                 line = line.strip()
                 if not line:

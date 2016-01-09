@@ -27,6 +27,13 @@ room_info = [{'unreadItems': 0,
               'url': '/spam/ham/egg',
               'security': 'PRIVATE'}]
 
+user_info = {'id': "userIdSpamHam",
+             'username': "oklahomer",
+             'displayName': "homer",
+             'url': "/oklahomer",
+             'avatarUrlSmall': '/path/to/small/file.png',
+             'avatarUrlMedium': '/path/to/medium/file.png'}
+
 
 class TestGitterClient(object):
     @pytest.fixture(scope='function')
@@ -51,17 +58,11 @@ class TestGitterClient(object):
 
     def test_get_current_user(self, client):
         mapper = ObjectMapper(GitterClient.User)
-        userInfo = {'id': "userIdSpamHam",
-                    'username': "oklahomer",
-                    'displayName': "homer",
-                    'url': "/oklahomer",
-                    'avatarUrlSmall': '/path/to/small/file.png',
-                    'avatarUrlMedium': '/path/to/medium/file.png'}
         with patch.object(client,
                           "request",
-                          return_value=[mapper.map(userInfo)]):
+                          return_value=[mapper.map(user_info)]):
             ret = client.get_current_user()
-            assert_that(ret).is_equal_to(mapper.map(userInfo))
+            assert_that(ret).is_equal_to(mapper.map(user_info))
             method, endpoint = client.request.call_args[0]
             assert_that(method).is_equal_to("GET")
             assert_that(endpoint).ends_with("/user")
@@ -180,3 +181,18 @@ class TestGitter(object):
         endpoint = gitter.generate_endpoint("dummy")
         assert_that(endpoint).starts_with("http")
         assert_that(endpoint).ends_with("/rooms/dummy/chatMessages")
+
+    def test_connect_success(self, gitter):
+        room = ObjectMapper(GitterClient.Room).map(room_info[0])
+        user = ObjectMapper(GitterClient.User).map(user_info)
+        with patch.object(gitter.client,
+                          "get_rooms",
+                          return_value=[room]):
+            with patch.object(gitter.client,
+                              "get_current_user",
+                              return_value=user):
+                with patch.object(gitter,
+                                  "connect_room",
+                                  return_value=None):
+                    gitter.connect()
+                    assert_that(gitter.connect_room.call_count).is_equal_to(1)
