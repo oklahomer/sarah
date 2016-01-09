@@ -247,6 +247,25 @@ class GitterClient(object):
             raise e
 
 
+class ConnectAttemptionCounter(object):
+    def __init__(self, limit: int = 10):
+        self.__count = 0
+        self.__limit = limit
+
+    def increment(self):
+        self.__count += 1
+
+    def reset(self):
+        self.__count = 0
+
+    def can_retry(self):
+        return self.__limit > self.__count
+
+    @property
+    def count(self):
+        return self.__count
+
+
 class Gitter(Base):
     """Provide bot for Gitter."""
 

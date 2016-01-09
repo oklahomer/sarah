@@ -7,7 +7,7 @@ import requests
 from assertpy import assert_that
 from requests.models import Response
 
-from sarah.bot.gitter import GitterClient, Gitter
+from sarah.bot.gitter import GitterClient, Gitter, ConnectAttemptionCounter
 from sarah.value_object import ObjectMapper
 
 room_info = [{'unreadItems': 0,
@@ -139,6 +139,27 @@ class TestGitterClient(object):
                 assert_that(kwargs['headers']['Authorization']).is_not_empty()
                 assert_that(kwargs['headers']['Accept']).is_not_empty()
                 assert_that(kwargs['headers']['Content-Type']).is_not_empty()
+
+
+class TestConnectAttemptionCounter(object):
+    def test_valid(self):
+        counter = ConnectAttemptionCounter()
+        assert_that(counter.count).is_zero()
+        assert_that(counter.increment())
+        assert_that(counter.count).is_equal_to(1)
+        assert_that(counter.increment())
+        assert_that(counter.count).is_equal_to(2)
+        assert_that(counter.can_retry()).is_true()
+
+    def test_valid_with_limit(self):
+        counter = ConnectAttemptionCounter(limit=2)
+        assert_that(counter.can_retry()).is_true()
+        assert_that(counter.increment())
+        assert_that(counter.can_retry()).is_true()
+        assert_that(counter.increment())
+        assert_that(counter.can_retry()).is_false()
+        assert_that(counter.reset())
+        assert_that(counter.can_retry()).is_true()
 
 
 class TestGitter(object):
