@@ -100,7 +100,7 @@ class GitterClient(object):
 
         @property
         def html(self) -> str:
-            return self['sent']
+            return self['html']
 
         @property
         def sent(self) -> str:
