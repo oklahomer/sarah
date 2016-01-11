@@ -176,11 +176,9 @@ class TestTryConnect(object):
 class TestConnect(object):
     @pytest.fixture(scope='function')
     def slack(self, request):
-        client = Slack(token='spam_ham_egg',
-                       plugins=(),
-                       max_workers=1)
-        client.running = True
-        return client
+        return Slack(token='spam_ham_egg',
+                     plugins=(),
+                     max_workers=1)
 
     def test_reconnection(self, slack):
         logging.error = MagicMock()
@@ -190,14 +188,6 @@ class TestConnect(object):
 
             assert_that(slack.try_connect.call_count).is_equal_to(10)
             assert_that(logging.error.call_count).is_equal_to(11)
-
-    def test_disconnect(self, slack):
-        slack.ws = MagicMock()
-        with patch.object(slack.ws,
-                          'close',
-                          return_value=None):
-            slack.disconnect()
-            assert_that(slack.ws.close.call_count).is_equal_to(1)
 
 
 class TestWsCallback(object):

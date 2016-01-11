@@ -70,9 +70,6 @@ class Base(object, metaclass=abc.ABCMeta):
         self.worker = None  # type: ThreadPoolExecutor
         self.message_worker = None  # type: ThreadExecutor
 
-        # Running status
-        self.running = False
-
         cls = self.__class__
         cls_name = cls.__name__
 
@@ -116,8 +113,8 @@ class Base(object, metaclass=abc.ABCMeta):
             - load plugin modules
             - add scheduled jobs and start scheduler
             - connect to server
+            - stop workers and scheduler when connection is gone
         """
-        self.running = True
 
         # Setup required workers
         self.worker = ThreadPoolExecutor(max_workers=self.max_workers) \
@@ -131,19 +128,15 @@ class Base(object, metaclass=abc.ABCMeta):
         self.add_schedule_jobs(self.schedules)
         self.scheduler.start()
 
-        self.connect()
-
-    @abc.abstractmethod
-    def disconnect(self) -> None:
-        pass
+        try:
+            self.connect()
+        except Exception as e:
+            logging.error("Error occurred while bot interaction", e)
+        finally:
+            self.stop()
 
     def stop(self) -> None:
-        """Stop.
-
-        Concrete class should extend this method to execute each bot specific
-        tasks and call this original method to quit everything.
-        """
-        self.running = False
+        """Stop. Cleanup scheduler and workers. Consider this as finalizer."""
 
         logging.info('STOP SCHEDULER')
         if self.scheduler.running:
@@ -159,8 +152,6 @@ class Base(object, metaclass=abc.ABCMeta):
 
         logging.info('STOP MESSAGE WORKER')
         self.message_worker.shutdown(wait=False)
-
-        self.disconnect()
 
     @classmethod
     def concurrent(cls, callback_function):
