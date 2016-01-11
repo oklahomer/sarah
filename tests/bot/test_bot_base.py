@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import logging
+import sys
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, Future
 from typing import Dict, Any, Optional, Callable
+from unittest.mock import patch, PropertyMock, Mock
 
-import sys
 from apscheduler.schedulers.background import BackgroundScheduler
 from assertpy import assert_that
-from unittest.mock import patch, PropertyMock
 
 from sarah.bot import Base
 from sarah.bot.values import CommandMessage, ScheduledCommand, Command, \
@@ -20,8 +20,7 @@ def create_concrete_class():
     return type('BaseImpl',
                 (Base,),
                 {'connect': lambda self: None,
-                 'generate_schedule_job': lambda self, command: None,
-                 'disconnect': lambda self: None})
+                 'generate_schedule_job': lambda self, command: None})
 
 
 class TestInit(object):
@@ -56,30 +55,39 @@ class TestRun(object):
     def test_valid(self):
         kls = create_concrete_class()
         base_impl = kls(None, 3)
-        base_impl.run()
 
-        assert_that(base_impl.worker).is_instance_of(ThreadPoolExecutor)
-        assert_that(base_impl.worker._shutdown).is_false()
-        assert_that(base_impl.message_worker).is_instance_of(ThreadExecutor)
-        assert_that(base_impl.message_worker._shutdown).is_false()
-        assert_that(base_impl.scheduler.running).is_true()
+        with patch.object(base_impl,
+                          "connect",
+                          return_value=None):
+            with patch.object(base_impl,
+                              "stop",
+                              return_value=None):
+                base_impl.run()
+
+                worker = base_impl.worker
+                message_worker = base_impl.message_worker
+                assert_that(worker).is_instance_of(ThreadPoolExecutor)
+                assert_that(worker._shutdown).is_false()
+                assert_that(message_worker).is_instance_of(ThreadExecutor)
+                assert_that(message_worker._shutdown).is_false()
+                assert_that(base_impl.scheduler.running).is_true()
+                assert_that(base_impl.connect.call_count).is_equal_to(1)
+                assert_that(base_impl.stop.call_count).is_equal_to(1)
 
 
 class TestStop(object):
     def test_valid(self):
         kls = create_concrete_class()
         base_impl = kls(None, 3)
-        base_impl.run()
+        base_impl.scheduler = Mock(spec=BackgroundScheduler)
+        base_impl.message_worker = Mock(spec=ThreadExecutor)
+        base_impl.worker = Mock(spec=ThreadPoolExecutor)
 
-        with patch.object(base_impl,
-                          "disconnect",
-                          return_value=None):
-            base_impl.stop()
-            assert_that(base_impl.disconnect.call_count).is_equal_to(1)
-        assert_that(base_impl.running).is_false()
-        assert_that(base_impl.worker._shutdown).is_true()
-        assert_that(base_impl.message_worker._shutdown).is_true()
-        assert_that(base_impl.scheduler.running).is_false()
+        base_impl.stop()
+
+        assert_that(base_impl.scheduler.shutdown.called).is_true()
+        assert_that(base_impl.worker.shutdown.called).is_true()
+        assert_that(base_impl.message_worker.shutdown.called).is_true()
 
 
 class TestLoadPlugins(object):
@@ -293,9 +301,6 @@ class TestAddScheduleJobs(object):
             def connect(self) -> None:
                 pass
 
-            def disconnect(self) -> None:
-                pass
-
             def generate_schedule_job(self,
                                       command: ScheduledCommand) \
                     -> Optional[Callable[..., None]]:
@@ -319,9 +324,6 @@ class TestAddScheduleJobs(object):
     def test_missing_returning_function(self):
         class BaseImpl(Base):
             def connect(self) -> None:
-                pass
-
-            def disconnect(self) -> None:
                 pass
 
             def generate_schedule_job(self,

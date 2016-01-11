@@ -4,6 +4,7 @@
 Give a path to a configuration yaml file or place a file named sarah.yaml in
 the same directory.
 """
+import inspect
 import logging
 import os
 from multiprocessing import Process  # type: ignore
@@ -13,6 +14,7 @@ import yaml  # type: ignore
 from typing import Dict, Iterable
 from sarah.bot.hipchat import HipChat
 from sarah.bot.slack import Slack
+from sarah.bot.gitter import Gitter
 from sarah.exceptions import SarahException
 
 try:
@@ -36,15 +38,12 @@ class Sarah(object):
     def start(self) -> None:
         processes = []
 
-        if 'hipchat' in self.config:
-            logging.info('Start HipChat integration')
-            hipchat = HipChat(**self.config['hipchat'])
-            processes.append(Process(target=hipchat.run))
-
-        if 'slack' in self.config:
-            logging.info('Start Slack integration')
-            slack = Slack(**self.config['slack'])
-            processes.append(Process(target=slack.run))
+        for module in [HipChat, Slack, Gitter]:
+            key = inspect.getmodule(module).__name__.rsplit('.', 1)[1]
+            if key in self.config:
+                logging.info('Start %s integration', module.__name__)
+                bot = module(**self.config[key])
+                processes.append(Process(target=bot.run))
 
         for process in processes:
             process.start()

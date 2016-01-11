@@ -5,6 +5,7 @@ import pytest
 from assertpy import assert_that
 from typing import Union, AnyStr, Pattern, Callable, Optional, Any, Dict
 from sarah import ValueObject
+from sarah.value_object import ObjectMapper
 
 
 class TestInit(object):
@@ -117,3 +118,17 @@ class TestInvalidInplimentation(object):
         MyInvalidClass()
 
         assert_that(e).is_instance_of(NotImplementedError)
+
+
+class TestObjectMapper(object):
+    def test_map(self):
+        class Obj(ValueObject):
+            def __init__(self,
+                         spam: str,
+                         egg: str) -> None:
+                pass
+
+        given_obj = {'spam': "ham", 'egg': "rotten", 'ignored_column': "abc"}
+        obj = ObjectMapper(Obj).map(given_obj)
+        assert_that(obj['spam']).is_equal_to("ham")
+        assert_that(obj['egg']).is_equal_to("rotten")

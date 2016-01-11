@@ -18,7 +18,7 @@ recursive comparison.
 import hashlib
 import inspect
 from inspect import getfullargspec  # type: ignore
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Callable, Mapping
 
 
 class ValueObject(object):
@@ -142,6 +142,18 @@ class ValueObject(object):
     def keys(self) -> List[str]:
         """Return all keys of stored value."""
         return self.__stash.keys()
+
+
+class ObjectMapper(object):
+    def __init__(self, mapping_class: Callable[..., ValueObject]) -> None:
+        self.mapping_class = mapping_class
+
+        names, varargs = getfullargspec(self.mapping_class.__init__)[:2]
+        self.known_keys = names
+
+    def map(self, obj: Mapping[str, Any]) -> ValueObject:
+        kwargs = {k: v for k, v in obj.items() if k in self.known_keys}
+        return self.mapping_class(**kwargs)
 
 
 class Util(object):

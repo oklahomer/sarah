@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
-import concurrent
 import inspect
 import logging
-from concurrent.futures import ALL_COMPLETED, Future
-from time import sleep
+from concurrent.futures import Future
+from unittest.mock import MagicMock, patch
 
 import pytest
 from assertpy import assert_that
-from unittest.mock import MagicMock, patch, call
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqTimeout, IqError
 from sleekxmpp.stanza import Message
@@ -85,55 +83,32 @@ class TestConnect(object):
                 'connect',
                 return_value=False) as mock_connect:
             with pytest.raises(SarahHipChatException) as e:
-                hipchat.run()
+                hipchat.connect()
 
             assert_that(str(e)) \
                 .matches("Couldn't connect to server\.")
             assert_that(mock_connect.call_count).is_equal_to(1)
-
-    def test_disconnect(self):
-        hipchat = HipChat(nick='Sarah',
-                          jid='test@localhost',
-                          password='password')
-
-        hipchat.client = MagicMock()
-        hipchat.disconnect()
-        assert_that(hipchat.client.disconnect.call_count).is_equal_to(1)
 
 
 # noinspection PyUnresolvedReferences
 class TestMessage(object):
     @pytest.fixture(scope='function')
     def hipchat(self, request):
-        h = HipChat(nick='Sarah',
-                    jid='test@localhost',
-                    password='password',
-                    plugins=None,
-                    max_workers=4)
-        h.client.connect = lambda: True
-        h.client.process = lambda *args, **kwargs: True
-        request.addfinalizer(h.stop)
-        h.run()
-
-        return h
-
-    def wait_future_finish(self, future):
-        sleep(.5)  # Why would I need this line?? Check later.
-
-        ret = concurrent.futures.wait([future], 5, return_when=ALL_COMPLETED)
-        if len(ret.not_done) > 0:
-            logging.error("Jobs are not finished.")
-        assert_that(ret.done).contains(future)
+        return HipChat(nick='Sarah',
+                       jid='test@localhost',
+                       password='password',
+                       plugins=None,
+                       max_workers=2)
 
     def test_skip_message(self, hipchat):
         msg = Message(hipchat.client, stype='normal')
         msg['body'] = 'test body'
-
-        msg.reply = MagicMock()
-
         with patch.object(hipchat, 'respond', return_value=None):
-            self.wait_future_finish(hipchat.message(msg))
-            assert_that(msg.reply.call_count).is_zero()
+            with patch.object(hipchat,
+                              'enqueue_sending_message',
+                              return_value=Future()):
+                hipchat.message(msg)
+                assert_that(hipchat.enqueue_sending_message.called).is_false()
 
     def test_skip_own_message(self, hipchat):
         msg = Message(hipchat.client, stype='groupchat')
@@ -146,8 +121,8 @@ class TestMessage(object):
                             {'abc': "homer"},
                             clear=True):
                 with patch.object(msg, "get_mucnick", return_value="homer"):
-                    self.wait_future_finish(hipchat.message(msg))
-                    assert_that(hipchat.respond.call_count).is_equal_to(0)
+                    hipchat.message(msg)
+                    assert_that(hipchat.respond.called).is_false()
 
     def test_echo_message(self, hipchat):
         msg = Message(hipchat.client, stype='normal')
@@ -156,10 +131,12 @@ class TestMessage(object):
         msg.reply = MagicMock()
 
         with patch.object(hipchat, 'respond', return_value="spam"):
-            self.wait_future_finish(hipchat.message(msg))
-            assert_that(hipchat.respond.call_count).is_equal_to(1)
-            assert_that(msg.reply.call_count).is_equal_to(1)
-            assert_that(msg.reply.call_args == call('spam')).is_true()
+            with patch.object(hipchat,
+                              'enqueue_sending_message',
+                              return_value=Future()):
+                hipchat.message(msg)
+                assert_that(hipchat.respond.called).is_true()
+                assert_that(hipchat.enqueue_sending_message.called).is_true()
 
 
 class TestGenerateScheduleJob(object):
