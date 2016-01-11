@@ -47,7 +47,7 @@ class GitterClient(object):
 
         @property
         def is_one_to_one(self) -> bool:
-            return self['oneToOneA']
+            return self['oneToOne']
 
         @property
         def unread_items(self) -> int:
@@ -88,8 +88,7 @@ class GitterClient(object):
                      issues: Sequence[Dict[str, Any]],
                      meta: Dict[str, Any]) -> None:
             self['fromUser'] = ObjectMapper(GitterClient.User).map(fromUser)
-            # TODO convert "sent" and "editedAt" to datetime related object
-            pass
+            # TODO convert "sent" to datetime related object
 
         @property
         def id(self) -> str:
@@ -106,10 +105,6 @@ class GitterClient(object):
         @property
         def sent(self) -> str:
             return self['sent']
-
-        @property
-        def edited_at(self) -> str:
-            return self['editedAt']
 
         @property
         def from_user(self) -> 'GitterClient.User':

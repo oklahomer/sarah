@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+from inspect import getfullargspec
 from unittest.mock import patch, Mock
 
 import pytest
@@ -33,6 +34,26 @@ user_info = {'id': "userIdSpamHam",
              'url': "/oklahomer",
              'avatarUrlSmall': '/path/to/small/file.png',
              'avatarUrlMedium': '/path/to/medium/file.png'}
+
+message_info = {'id': "5330521e20d939a3be000018",
+                "text": "Happy Hacking!",
+                "html": "Happy Hacking!",
+                "sent": "2014-03-24T15:41:18.991Z",
+                "editedAt": None,
+                "fromUser": {"id": "5315ef029517002db7dde53b",
+                             "username": "malditogeek",
+                             "displayName": "Mauro Pompilio",
+                             "url": "/malditogeek",
+                             "avatarUrlSmall": "https://localhost/u/14751?",
+                             "avatarUrlMedium": "https://localhost/u/14751?",
+                             "v": 2},
+                "unread": False,
+                "readBy": 0,
+                "urls": [],
+                "mentions": [],
+                "issues": [],
+                "meta": {},
+                "v": 1}
 
 
 class TestGitterClient(object):
@@ -82,35 +103,12 @@ class TestGitterClient(object):
     def test_post_message(self, client):
         sending_text = "my message"
         room_id = "room_d_123"
-        response_object = {
-            'id': "5330521e20d939a3be000018",
-            "text": "Happy Hacking!",
-            "html": "Happy Hacking!",
-            "sent": "2014-03-24T15:41:18.991Z",
-            "editedAt": None,
-            "fromUser": {
-                "id": "5315ef029517002db7dde53b",
-                "username": "malditogeek",
-                "displayName": "Mauro Pompilio",
-                "url": "/malditogeek",
-                "avatarUrlSmall": "https://localhost/u/14751?",
-                "avatarUrlMedium": "https://localhost/u/14751?",
-                "v": 2
-            },
-            "unread": False,
-            "readBy": 0,
-            "urls": [],
-            "mentions": [],
-            "issues": [],
-            "meta": {},
-            "v": 1
-        }
         mapper = ObjectMapper(GitterClient.Message)
         with patch.object(client,
                           "request",
-                          return_value=mapper.map(response_object)):
+                          return_value=mapper.map(message_info)):
             ret = client.post_message(room_id, sending_text)
-            assert_that(ret).is_equal_to(mapper.map(response_object))
+            assert_that(ret).is_equal_to(mapper.map(message_info))
             method, endpoint = client.request.call_args[0]
             assert_that(method).is_equal_to("POST")
             assert_that(endpoint).ends_with("/chatMessages")
@@ -140,6 +138,54 @@ class TestGitterClient(object):
                 assert_that(kwargs['headers']['Authorization']).is_not_empty()
                 assert_that(kwargs['headers']['Accept']).is_not_empty()
                 assert_that(kwargs['headers']['Content-Type']).is_not_empty()
+
+    def test_room(self):
+        orig_data = room_info[0]
+        known_names, = getfullargspec(GitterClient.Room.__init__)[:1]
+        kwargs = {k: v for k, v in orig_data.items() if k in known_names}
+        room = GitterClient.Room(**kwargs)
+        assert_that(room) \
+            .has_id(orig_data['id']) \
+            .has_name(orig_data['name']) \
+            .has_topic(orig_data['topic']) \
+            .has_is_one_to_one(orig_data['oneToOne']) \
+            .has_unread_items(orig_data['unreadItems']) \
+            .has_mentions(orig_data['mentions']) \
+            .has_is_lurk(orig_data['lurk']) \
+            .has_url(orig_data['url']) \
+            .has_github_type(orig_data['githubType'])
+
+    def test_user(self):
+        known_names, = getfullargspec(GitterClient.User.__init__)[:1]
+        kwargs = {k: v for k, v in user_info.items() if k in known_names}
+        user = GitterClient.User(**kwargs)
+        assert_that(user) \
+            .has_id(user_info['id']) \
+            .has_user_name(user_info['username']) \
+            .has_display_name(user_info['displayName']) \
+            .has_url(user_info['url']) \
+            .has_avatar_url_small(user_info['avatarUrlSmall']) \
+            .has_avatar_url_medium(user_info['avatarUrlMedium'])
+
+    def test_message(self):
+        known_names, = getfullargspec(GitterClient.Message.__init__)[:1]
+        kwargs = {k: v for k, v in message_info.items() if k in known_names}
+        message = GitterClient.Message(**kwargs)
+        assert_that(message) \
+            .has_id(message_info['id']) \
+            .has_text(message_info['text']) \
+            .has_html(message_info['html']) \
+            .has_sent(message_info['sent']) \
+            .has_is_unread(message_info['unread']) \
+            .has_read_by(message_info['readBy']) \
+            .has_urls(message_info['urls']) \
+            .has_mentions(message_info['mentions']) \
+            .has_issues(message_info['issues']) \
+            .has_meta(message_info['meta'])
+        assert_that(message.from_user) \
+            .is_not_none() \
+            .is_instance_of(GitterClient.User) \
+            .has_id('5315ef029517002db7dde53b')
 
 
 class TestConnectAttemptionCounter(object):
