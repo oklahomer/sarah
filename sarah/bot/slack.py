@@ -228,18 +228,18 @@ class Slack(Base):
 
         :return: None
         """
-        while self.running:
-            if self.connect_attempt_count >= 10:
-                logging.error("Attempted 10 times, but all failed. Quitting.")
-                break
-
+        while self.connect_attempt_count < 10:
             try:
                 self.connect_attempt_count += 1
                 self.try_connect()
+            except KeyboardInterrupt:
+                break
             except Exception as e:
                 logging.error(e)
 
             time.sleep(self.connect_attempt_count)
+        else:
+            logging.error("Attempted 10 times, but all failed. Quitting.")
 
     def try_connect(self) -> None:
         """Try establish connection with Slack websocket server."""
@@ -478,13 +478,6 @@ class Slack(Base):
         """
         self.message_id += 1
         return self.message_id
-
-    def disconnect(self) -> None:
-        """Disconnect from Slack websocket server
-
-        :return: None
-        """
-        self.ws.close()
 
 
 class SarahSlackException(SarahException):

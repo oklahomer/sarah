@@ -309,7 +309,7 @@ class Gitter(Base):
         for thread in threads:
             thread.start()
 
-        while self.running:
+        while True:
             if len([t for t in threads if t.is_alive()]):
                 # Check thread status every 5 secs.
                 time.sleep(5)
@@ -372,6 +372,3 @@ class Gitter(Base):
                 self.client.post_message(room.id, ret)
         except Exception as e:
             logging.error(e)
-
-    def disconnect(self) -> None:
-        pass

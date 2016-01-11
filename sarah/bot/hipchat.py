@@ -71,7 +71,7 @@ class HipChat(Base):
         return job_function
 
     def connect(self) -> None:
-        """Connect to Slack websocket server and start interaction.
+        """Connect to HipChat server and start interaction.
 
         :return: None
         """
@@ -192,16 +192,6 @@ class HipChat(Base):
         ret = self.respond(msg['from'], msg['body'])
         if ret:
             return self.enqueue_sending_message(lambda: msg.reply(ret).send())
-
-    def disconnect(self) -> None:
-        """Disconnect from HipChat server
-
-        :return: None
-        """
-        if hasattr(self, 'client') and self.client is not None:
-            self.client.socket.recv_data(self.client.stream_footer)
-            self.client.disconnect()
-            logging.info('DISCONNECTED FROM HIPCHAT SERVER')
 
 
 class SarahHipChatException(SarahException):
